@@ -9,6 +9,8 @@
     "lint": "eslint .",
     "test": "vitest run",
     "check:architecture": "node scripts/harness/check-architecture.mjs",
+    "check:bundle-size": "node scripts/harness/check-bundle-size.mjs",
+    "check:precompletion": "npm run build && npm run lint && npm test && npm run check:architecture && npm run check:bundle-size",
     "deploy": "wrangler deploy"
   },
   "dependencies": {

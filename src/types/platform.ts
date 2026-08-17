@@ -4,6 +4,10 @@ export interface Viewer {
   avatarUrl: string;
 }
 
+export interface AccountPort {
+  currentViewer(): Promise<Viewer>;
+}
+
 export interface UploadedMedia {
   id: string;
   url: string;

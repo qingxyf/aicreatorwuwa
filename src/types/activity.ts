@@ -1,10 +1,4 @@
-export type ActivityId = 'resonance-theatre' | 'brocade-wardrobe';
-
-export type TrackId =
-  | 'best-art-style'
-  | 'best-story'
-  | 'best-costume-design'
-  | 'best-runway-video';
+export type TrackId = 'resonance-theatre' | 'brocade-wardrobe';
 
 export type ContestPhase = 'submission' | 'pairing' | 'final-vote' | 'closed';
 
@@ -12,9 +6,10 @@ export type WorkStatus = 'draft' | 'pending' | 'approved' | 'finalist' | 'hidden
 
 export interface TrackDefinition {
   id: TrackId;
-  activityId: ActivityId;
   title: string;
-  medium: 'images' | 'video';
+  acceptedMedia: Array<'image' | 'video'>;
+  minimumMediaCount: number;
+  videoSatisfiesMinimum?: boolean;
   summary: string;
   requirements: string[];
 }
