@@ -1,0 +1,12 @@
+name = "wuwa-toy-activity-api"
+main = "src/entrypoints/worker.ts"
+compatibility_date = "2026-08-18"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "wuwa-toy-activity"
+database_id = "replace-with-d1-database-id"
+
+[[r2_buckets]]
+binding = "MEDIA_BUCKET"
+bucket_name = "wuwa-toy-media"
