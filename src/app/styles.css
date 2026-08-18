@@ -174,6 +174,17 @@ button, input, textarea { font: inherit; }
   mask-image: linear-gradient(90deg, transparent 0%, rgba(0,0,0,.55) 20%, #000 37%);
 }
 
+.hero-bottom-fade {
+  background: linear-gradient(180deg, rgba(14,17,28,0) 0%, rgba(14,17,28,.35) 48%, #0e111c 100%);
+  bottom: 0;
+  height: 190px;
+  left: 0;
+  pointer-events: none;
+  position: absolute;
+  right: 0;
+  z-index: 3;
+}
+
 .hero-stage {
   align-items: center;
   bottom: 0;
