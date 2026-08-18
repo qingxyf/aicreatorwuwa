@@ -61,6 +61,10 @@ function currentArtUrl() {
   return `${import.meta.env.BASE_URL}assets/rainy-wuwa-hero.png`;
 }
 
+function characterArtUrl(filename: string) {
+  return `${import.meta.env.BASE_URL}assets/${filename}`;
+}
+
 function formatSchedule(startAt?: string, endAt?: string): string {
   if (!startAt || !endAt) return '时间待运营发布';
   const formatter = new Intl.DateTimeFormat('zh-CN', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Shanghai' });
@@ -113,6 +117,15 @@ function RulePanel({ track }: { track: PublicTrack }) {
       <p className="rule-summary">{track.summary}</p>
       <ul>{track.requirements.map((requirement) => <li key={requirement}><CheckCircleFilled />{requirement}</li>)}</ul>
     </Card>
+  );
+}
+
+function CharacterDuo() {
+  return (
+    <div aria-hidden="true" className="character-duo">
+      <img className="character-companion character-companion-blonde" decoding="async" loading="lazy" src={characterArtUrl('blonde-character-soft-smile.png')} alt="" />
+      <img className="character-companion character-companion-grey" decoding="async" loading="lazy" src={characterArtUrl('grey-character-soft-smile.png')} alt="" />
+    </div>
   );
 }
 
@@ -309,7 +322,7 @@ export function App({ api }: AppProps) {
           <div className="hero-stage" aria-label="活动周期">{stageOrder.map((stage) => { const item = config.schedule[stage.scheduleKey]; const active = config.phase === stage.phase; return <span className={active ? 'active-stage' : ''} key={stage.phase}><b>{stage.number}</b><i><strong>{item.label}</strong><small>{formatSchedule(item.startAt, item.endAt)}</small></i></span>; })}</div>
         </section>
 
-        <section className="content-section rules-section"><div className="section-heading"><p>参与之前</p><h2>选择赛道，再开始创作</h2></div><TrackTabs activeTrackId={activeTrack.id} onChange={selectTrack} tracks={config.tracks} /><RulePanel track={activeTrack} /></section>
+        <section className="content-section rules-section"><div className="section-heading"><p>参与之前</p><h2>选择赛道，再开始创作</h2></div><TrackTabs activeTrackId={activeTrack.id} onChange={selectTrack} tracks={config.tracks} /><RulePanel track={activeTrack} /><CharacterDuo /></section>
 
         {showSubmission ? <section className="content-section participation-section" id="submit"><div className="section-heading"><p>{config.schedule.submission.label}</p><h2>把你的灵感留在这场雨里</h2></div><Card className="submit-callout" variant="borderless"><div><h3>投稿时间</h3><p>{formatSchedule(config.schedule.submission.startAt, config.schedule.submission.endAt)}。选择赛道后上传图片或视频，审核通过后会进入后续活动阶段。</p></div><Button icon={<CloudUploadOutlined />} onClick={() => openSubmission()} type="primary">填写投稿信息</Button></Card></section> : null}
 

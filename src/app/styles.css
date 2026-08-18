@@ -268,6 +268,12 @@ button, input, textarea { font: inherit; }
 .rule-card li { color: rgba(255,244,225,.8); font-family: "PingFang SC", "Microsoft YaHei", sans-serif; font-size: 14px; line-height: 1.55; }
 .rule-card li span { color: #e2b455; margin-right: 10px; }
 
+.rules-section { padding-bottom: 72px; }
+.character-duo { align-items: end; display: flex; height: 112px; justify-content: flex-end; margin: -4px 30px -70px auto; pointer-events: none; position: relative; width: 294px; z-index: 1; }
+.character-companion { filter: drop-shadow(0 14px 16px rgba(5, 7, 18, .26)); height: auto; max-width: none; object-fit: contain; transform-origin: bottom center; width: 148px; }
+.character-companion-blonde { margin-right: -28px; transform: rotate(-4deg) translateY(6px); }
+.character-companion-grey { transform: rotate(4deg) translateY(11px); width: 142px; }
+
 .participation-section { padding-top: 60px; }
 .submit-callout.ant-card { background: #dfc18e; border: 0; border-radius: 4px; margin-top: 40px; overflow: hidden; position: relative; }
 .submit-callout::after { border: 1px solid rgba(74,45,25,.35); content: ""; inset: 8px; pointer-events: none; position: absolute; }
@@ -394,6 +400,10 @@ footer { border-top: 1px solid rgba(232,208,160,.13); color: rgba(247,240,229,.4
   .rule-card .ant-card-body { padding: 25px 20px; }
   .rule-card-head { flex-direction: column; gap: 6px; }
   .rule-card-head h3 { font-size: 23px; }
+  .rules-section { padding-bottom: 62px; }
+  .character-duo { height: 88px; margin-right: 0; margin-top: 0; width: 224px; }
+  .character-companion { width: 112px; }
+  .character-companion-grey { width: 108px; }
   .submit-callout .ant-card-body { align-items: flex-start; flex-direction: column; padding: 28px 22px; }
   .submit-callout h3 { font-size: 22px; }
   .vote-section { padding-top: 20px; }
@@ -423,7 +433,11 @@ footer { border-top: 1px solid rgba(232,208,160,.13); color: rgba(247,240,229,.4
 @media (prefers-reduced-motion: no-preference) {
   .hero-art { animation: hero-settle .9s cubic-bezier(.2,.72,.27,1) both; }
   .hero-content { animation: content-rise .72s .09s cubic-bezier(.2,.72,.27,1) both; }
+  .character-companion-blonde { animation: blonde-character-float 4.6s ease-in-out .5s infinite alternate; }
+  .character-companion-grey { animation: grey-character-float 5.2s ease-in-out 1s infinite alternate; }
 }
 
 @keyframes hero-settle { from { opacity: 0; transform: scale(1.04); } to { opacity: 1; transform: scale(1); } }
 @keyframes content-rise { from { opacity: 0; transform: translateY(18px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes blonde-character-float { from { transform: rotate(-4deg) translateY(6px); } to { transform: rotate(-2deg) translateY(-2px); } }
+@keyframes grey-character-float { from { transform: rotate(4deg) translateY(11px); } to { transform: rotate(2deg) translateY(3px); } }
