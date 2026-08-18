@@ -1,74 +1,102 @@
-# Bilibili Toy 与 Cloudflare 部署说明
+# Bilibili Toy 与阿里云 ECS 部署说明
 
-## 1. 创建持久化资源
+生产结构为：Toy 静态前端 → HTTPS → ECS Node.js API → PostgreSQL + 私有 OSS。项目不依赖 Cloudflare Worker、D1 或 R2。
 
-在 Cloudflare 中创建 D1 数据库和 R2 存储桶，并把得到的 D1 ID 写入 `wrangler.toml`：
+## 1. 已准备的云资源
 
-```powershell
-npx wrangler d1 create wuwa-toy-activity
-npx wrangler r2 bucket create wuwa-toy-media
-npx wrangler d1 execute wuwa-toy-activity --remote --file migrations/0001_init.sql
-npx wrangler d1 execute wuwa-toy-activity --remote --file migrations/0002_activity-settings-and-rate-limits.sql
-```
+- ECS：Ubuntu 22.04，2 vCPU / 4 GiB，公网 IP 47.98.188.65。
+- OSS Bucket：aixiaozhanandmingchaoxiaozhan，华东 1（杭州），标准存储、同城冗余、阻止公共访问已开启。
+- OSS CORS：允许 B 站、GitHub Pages 和本地预览来源，GET/POST/PUT/HEAD，暴露 ETag 与 x-oss-request-id。
+- OSS 生命周期：未完成分片 7 天后自动清理。
 
-生产 Worker 需要一个**由平台验证身份断言**的桥接服务；不要把浏览器从 Toy SDK 获得的 `toyOpenId` 当作可信身份。配置桥接服务后设置密钥：
+不要把 AccessKey、SecretKey、SSH 私钥或身份断言写入仓库或发送到聊天中。服务器使用 RAM 最小权限凭据，只允许当前 Bucket 的对象读写、分片上传和终止分片。
 
-```powershell
-npx wrangler secret put IDENTITY_VERIFY_URL
-npx wrangler secret put IDENTITY_VERIFY_SECRET
-npx wrangler secret put MEDIA_PUBLIC_BASE_URL
-```
+## 2. ECS 初始化
 
-在 `wrangler.toml` 的 `[vars]` 中配置 `MODE = "production"` 和准确的 `PUBLIC_APP_ORIGIN`（Toy 公开页面的**完整 Origin**，不能写 `*`）。部署后，`MEDIA_PUBLIC_BASE_URL` 设为 Worker 的 HTTPS 域名。
+在 ECS 上安装 Docker 与 Compose，创建部署目录：
 
-## 2. 初始化运营白名单
+    sudo mkdir -p /opt/wuwa-ai/app /opt/wuwa-ai/backups
+    sudo chown -R wuwa:wuwa /opt/wuwa-ai
 
-使用桥接服务返回的 Toy 开放标识初始化运营账号，值必须是实际、已验证的标识：
+将仓库复制到 /opt/wuwa-ai/app，创建只存在服务器的 /opt/wuwa-ai/app/.env：
 
-```powershell
-npx wrangler d1 execute wuwa-toy-activity --remote --command "INSERT OR IGNORE INTO admins (viewer_id) VALUES ('TOY_OPEN_ID')"
-```
+    MODE=production
+    PORT=8787
+    POSTGRES_DB=wuwa
+    POSTGRES_USER=wuwa
+    POSTGRES_PASSWORD=generate-a-long-random-value
+    DATABASE_URL=postgres://wuwa:generate-a-long-random-value@db:5432/wuwa
+    OSS_REGION=oss-cn-hangzhou
+    OSS_BUCKET=aixiaozhanandmingchaoxiaozhan
+    OSS_ACCESS_KEY_ID=ram-user-key
+    OSS_ACCESS_KEY_SECRET=ram-user-secret
+    PUBLIC_APP_ORIGIN=https://www.bilibili.com
+    MEDIA_PUBLIC_BASE_URL=https://api.example.com
+    IDENTITY_VERIFY_URL=https://identity-bridge.example/verify
+    IDENTITY_VERIFY_SECRET=server-only-secret
+    ALLOW_TOY_PROFILE_IDENTITY=false
 
-只有此表中账号访问 `/ops` 的 API 会通过；公开页面没有运营入口。
+PUBLIC_APP_ORIGIN 必须改成 Toy 页面真实 Origin，不能使用通配符。如果 Toy 页面由 GitHub Pages 预览，还需将对应 Origin 加入 OSS CORS，但生产 API 仍只允许正式页面 Origin。
 
-## 3. 部署 Worker 与构建 Toy 静态包
+如果暂时没有身份断言桥接服务，可将服务端 `ALLOW_TOY_PROFILE_IDENTITY=true`、前端构建变量 `VITE_TRUST_TOY_PROFILE=true`。这会把 Toy SDK 返回的稳定开放标识、昵称和头像作为弱身份使用，能支持当前活动但不能抵御伪造请求；正式活动建议改回 `false` 并接入签名断言验证器。
 
-```powershell
-npm ci
-$env:VITE_API_BASE_URL = "https://your-worker.example"
-$env:VITE_TOY_BASE_PATH = "/your-custom-toy-path/"
-npm run check:precompletion
-npm run deploy
-```
+启动并检查：
 
-`VITE_TOY_BASE_PATH` 会写入 Vite 的资源基址，必须与 Toy 控制台配置的自定义访问路径一致。`check:bundle-size` 确认静态 `dist/` 不超过 140MB；运行时用户上传的图片/视频在 R2，不计入该静态包。
+    cd /opt/wuwa-ai/app
+    docker compose up -d --build
+    docker compose ps
+    curl -fsS http://127.0.0.1:8787/healthz
 
-## 4. 在 Toy 控制台发布和更新
+PostgreSQL 只映射在 Compose 私网，API 仅绑定本机 8787，公网通过 Nginx/Caddy 反代到 HTTPS。安全组只开放 80/443；SSH 配置密钥后把 22 限制为个人固定 IP。
 
-1. 按 Toy 新手指引创建应用并配置自定义访问路径。
-2. 上传 `dist/` 的全部内容，确保 `index.html` 与资源目录保持同级关系。
-3. 将 API 地址设置为上一步部署的 Worker 域名（通过 `VITE_API_BASE_URL` 在构建时写入）。
-4. 需要更新页面时，重新构建、运行 `npm run check:precompletion`，然后在 Toy 控制台上传新的 `dist/`；同一路径可以重复更新。
+## 3. 数据库和白名单
 
-发布前参考 [Toy SDK 接入边界](../integrations/bilibili-toy.md)，确认生产身份桥接已就绪。没有身份桥接时，生产 Worker 会拒绝写操作，这是为了避免伪造投稿和投票。
+server/migrations/001_init.sql 会在 PostgreSQL 首次启动时自动创建表、索引、唯一约束和默认活动设置。后续迁移需在备份后执行：
 
-## 5. 活动流程与时间
+    docker compose exec db psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -f /dev/stdin < server/migrations/001_init.sql
 
-白名单账号进入 `/ops` 后可以设置当前公开阶段、测试预览开关和三个阶段的起止时间：投稿阶段、盲选阶段、投票阶段。
+身份核验服务返回的规范化 Viewer.id（Toy 内稳定开放标识，不是 B 站 UID/MID）加入白名单：
 
-- 正常模式下，公开端和 Worker 写接口仅开放当前阶段；例如投稿结束后不能再上传或投稿。
-- 仅在测试时开启“测试预览”，它会同时展示三个流程，并临时放行相应测试接口。
-- 未填写日期时，公开页面明确显示“时间待运营发布”，不会擅自使用示例日期。
+    docker compose exec db psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "INSERT INTO admins(viewer_id) VALUES ('VERIFIED_TOY_OPEN_ID') ON CONFLICT DO NOTHING;"
 
-## 6. 上线前安全配置
+只有白名单账号能访问 /ops 的数据和写接口，公开页面不显示后台入口。
 
-Worker 已实施以下应用层控制：参数化 D1 查询、服务端身份核验、单次配对票据、阶段服务端拦截、每账号/路由固定窗口限流、JSON 与媒体请求体大小上限、媒体 MIME/文件签名双重校验、媒体响应 `nosniff`、生产 CORS 精确 Origin 和不回显内部异常。
+## 4. 本地构建和 GitHub Pages 预览
 
-这并不替代边缘抗攻击。部署前还必须在 Cloudflare 为 Worker 配置并验证：
+    npm ci
+    $env:VITE_API_BASE_URL = "https://api.example.com"
+    $env:VITE_TOY_BASE_PATH = "/your-custom-toy-path/"
+    npm run check:precompletion
 
-1. 启用 Managed WAF Rules、Bot/速率限制能力和 Cloudflare 的默认 DDoS 防护。
-2. 对 `/api/v1/media` 设置更严格的边缘限速与约 101 MiB 请求体上限；对投稿、盲选、投票和 `/api/v1/ops/*` 按 IP、路径设置限速规则。
-3. 仅允许预期的 HTTP 方法；拦截异常 User-Agent、跨站来源和明显扫描行为，并将命中日志接入告警。
-4. 将生产 `MODE` 保持为 `production`，确认未配置 `X-Dev-Viewer` 等开发身份绕过，并将身份桥接密钥只以 Worker secret 保存。
+VITE_TOY_BASE_PATH 必须与 Toy 自定义访问路径一致。dist/ 总包不能超过 140MB；用户运行时上传的图片/视频在 OSS，不计入 Toy 静态包。GitHub Pages 仅用于静态演示，不承载生产投稿和投票数据。
 
-前端不执行 `eval`、动态脚本或浏览器控制台命令；React 默认转义普通文本。用户可以修改自己浏览器的页面或请求，但无法绕过 Worker 的身份、阶段、票据和数据库原子校验。
+## 5. Toy 发布、预览和审核
+
+使用官方 Toy CLI，先查看命令树：
+
+    toy --help-json
+    toy whoami --json
+
+发布或更新前先做内容预检，确认 dist/index.html 和 dist/assets 同级、没有 /assets/... 这类根绝对路径，并确保自定义路径资源可加载。随后执行不带 --yes 的 toy create 或 toy update，得到 preview_url。
+
+在浏览器检查预览后，再明确确认“提交审核”，最后使用完全相同参数加 --yes 提交。提交审核前不要重复创建新 Toy；更新时保留原 Toy 的 slug。
+
+## 6. 活动运营
+
+白名单账号打开 Toy 的 /ops 路径，验证身份后：
+
+1. 设置当前阶段：投稿、盲选、投票或结束。
+2. 设置三个阶段的起止时间（北京时间）。
+3. 测试期间可开启“测试预览”，正式活动前关闭。
+4. 审核投稿、查看作者/头像/媒体、设置盲选池、入围和公开展示。
+
+正式模式下 API 会在服务端再次校验阶段，不依赖浏览器隐藏按钮。
+
+## 7. 安全与备份清单
+
+- PostgreSQL 全部使用参数化查询和事务；配额、一次性配对票据、每日票数由数据库约束/锁保证。
+- API 校验请求大小、MIME、文件签名、阶段、身份、媒体归属和白名单；异常只返回稳定错误码。
+- CORS 精确匹配，媒体响应带 nosniff；前端不执行 eval 或动态脚本。
+- ECS 安全组删除公网 RDP/ICMP，只保留 80/443，SSH 在密钥配置后限源。
+- 每日使用 pg_dump 备份 PostgreSQL，并把备份上传到独立私有 OSS 前缀；定期恢复演练。
+- 使用 Nginx/Caddy 自动续期 HTTPS；监控 /healthz、磁盘、CPU、内存、数据库连接和 OSS 错误率。

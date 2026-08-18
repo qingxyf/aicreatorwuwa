@@ -24,5 +24,9 @@ export function identityHeaders(viewer: Viewer): HeadersInit {
     return { 'x-dev-viewer': btoa(unescape(encodeURIComponent(JSON.stringify(viewer)))) };
   }
 
+  if (import.meta.env.VITE_TRUST_TOY_PROFILE === 'true') {
+    return { 'x-toy-profile': btoa(unescape(encodeURIComponent(JSON.stringify(viewer)))) };
+  }
+
   return {};
 }
