@@ -65,10 +65,11 @@ server/migrations/001_init.sql 会在 PostgreSQL 首次启动时自动创建表�
 
     npm ci
     $env:VITE_API_BASE_URL = "https://api.example.com"
-    $env:VITE_TOY_BASE_PATH = "/your-custom-toy-path/"
+    # Toy 包内资源必须使用相对路径；自定义访问路径由 Toy 平台的 slug 控制
+    $env:VITE_TOY_BASE_PATH = "./"
     npm run check:precompletion
 
-VITE_TOY_BASE_PATH 必须与 Toy 自定义访问路径一致。dist/ 总包不能超过 140MB；用户运行时上传的图片/视频在 OSS，不计入 Toy 静态包。GitHub Pages 仅用于静态演示，不承载生产投稿和投票数据。
+Toy 包内使用 `./` 作为 Vite base，避免 `/toy/<slug>/` 子路径下的资源 404；`dist/` 总包不能超过 140MB；用户运行时上传的图片/视频在 OSS，不计入 Toy 静态包。GitHub Pages 仅用于静态演示，不承载生产投稿和投票数据。
 
 ## 5. Toy 发布、预览和审核
 
@@ -83,7 +84,7 @@ VITE_TOY_BASE_PATH 必须与 Toy 自定义访问路径一致。dist/ 总包不�
 
 ## 6. 活动运营
 
-白名单账号打开 Toy 的 /ops 路径，验证身份后：
+白名单账号打开 Toy 包内的 `ops.html`（自有静态服务器可使用 `/ops`）并验证身份后：
 
 1. 设置当前阶段：投稿、盲选、投票或结束。
 2. 设置三个阶段的起止时间（北京时间）。
