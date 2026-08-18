@@ -180,11 +180,11 @@ function ActivityRewards() {
 
 export function App({ api }: AppProps) {
   const client = useMemo(() => api ?? new PublicActivityClient(), [api]);
-  const { rootRef, motionReady } = useScrollReveal();
   const [, messageContext] = message.useMessage();
   const [form] = Form.useForm<SubmissionFormValues>();
   const [config, setConfig] = useState<PublicContestConfig>(fallbackConfig);
   const [configReady, setConfigReady] = useState(false);
+  const { rootRef, motionReady } = useScrollReveal(configReady);
   const [configLoadFailed, setConfigLoadFailed] = useState(false);
   const [localPreview, setLocalPreview] = useState(false);
   const [activeTrackId, setActiveTrackId] = useState<ContestTrackId>('resonance-theatre');

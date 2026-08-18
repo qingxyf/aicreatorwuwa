@@ -37,7 +37,7 @@ Expected: FAIL because the page has no motion marker or visibility attribute yet
 
 - [ ] **Step 3: Implement `useScrollReveal`**
 
-Create a hook with a root ref and `motionReady` state. It should query `[data-motion-reveal]`, set `data-motion-visible="true"` for every marker when `IntersectionObserver` is unavailable, and otherwise observe each marker once, disconnecting on cleanup. The hook must not hide content until the root has `motion-ready` applied.
+Create a hook with a root ref and `motionReady` state. It should query `[data-motion-reveal]`, set `data-motion-visible="true"` for every marker when `IntersectionObserver` is unavailable, and otherwise observe each marker once, disconnecting on cleanup. Accept a refresh key for configuration readiness and use a `MutationObserver` plus a lightweight scroll check so asynchronously loaded gallery cards are registered after the first render. The hook must not hide content until the root has `motion-ready` applied.
 
 ```ts
 import { useEffect, useRef, useState } from 'react';
