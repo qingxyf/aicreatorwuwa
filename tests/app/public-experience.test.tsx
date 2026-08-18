@@ -107,6 +107,29 @@ describe('public activity experience', () => {
     expect(screen.getAllByText('投票阶段').length).toBeGreaterThan(0);
   });
 
+  test('restores the complete single-page preview when the local backend is unavailable', async () => {
+    const user = userEvent.setup();
+    const api = createApi();
+    api.loadConfig = async () => { throw new Error('offline'); };
+
+    render(<App api={api} />);
+
+    expect(await screen.findByText('鸣潮小站 × AI 创作小站联合举办')).toBeVisible();
+    expect(screen.getByText('Bilibili Toy 小站活动 · 非鸣潮官方活动')).toBeVisible();
+    expect(screen.getByText('投稿时间')).toBeVisible();
+    expect(screen.getByText('奖励信息即将公布')).toBeVisible();
+    expect(screen.getByText('让作品公平地相遇')).toBeVisible();
+    expect(screen.getByText('为喜欢的作品投票')).toBeVisible();
+
+    await user.click(screen.getByRole('button', { name: '开始二选一' }));
+    expect(await screen.findAllByRole('button', { name: /选这一件/ })).toHaveLength(2);
+    await user.click(screen.getAllByRole('button', { name: /选这一件/ })[0]);
+    expect(await screen.findByText(/本地演示/)).toBeVisible();
+
+    await user.click(screen.getByRole('button', { name: '投票给 雨夜新装' }));
+    expect(await screen.findByText(/每个赛道每日 3 票 · 还可投 2 票/)).toBeVisible();
+  });
+
   test('shows an author avatar and prevents a duplicate daily vote', async () => {
     const user = userEvent.setup();
     render(<App api={createApi()} />);

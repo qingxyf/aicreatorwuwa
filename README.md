@@ -37,6 +37,8 @@ npm run dev
 
 本地开发时可将 Worker 的 `MODE` 设为 `development`，并使用测试专用 `X-Dev-Viewer` 请求头；生产环境只接受身份核验桥接服务验证过的断言。
 
+未连接本地 Worker 时，Vite 开发预览会自动进入本地演示模式：同一页展示投稿、盲选、投票三个流程，并使用明确标注的演示作品与奖励待公布文案；该回退仅在开发构建启用，生产环境不会使用演示数据。
+
 首次部署或升级现有环境时，按顺序执行两个 D1 迁移：`migrations/0001_init.sql` 与 `migrations/0002_activity-settings-and-rate-limits.sql`。随后由白名单运营账号在 `/ops` 填写三个阶段的时间和当前阶段。
 
 ```powershell

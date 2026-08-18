@@ -24,6 +24,7 @@ import {
 } from '@ant-design/icons';
 import { PublicActivityClient, type ActivityHttpClient } from '../adapters/http/public-activity-client';
 import { defaultActivitySettings, trackDefinitions } from '../config/activity';
+import { createDemoPreviewData, demoPreviewConfig } from '../config/demo-preview';
 import { isPublicPhaseVisible } from '../domain/activity-phase';
 import type { ContestPhase, ContestTrackId, PublicContestConfig, PublicGalleryWork, PublicPairingWork, PublicTrack } from '../types/contest';
 import './styles.css';
@@ -56,6 +57,8 @@ const stageOrder: Array<{ phase: Exclude<ContestPhase, 'closed'>; scheduleKey: '
   { phase: 'pairing', scheduleKey: 'pairing', number: '02' },
   { phase: 'final-vote', scheduleKey: 'finalVote', number: '03' }
 ];
+
+const localDemoData = createDemoPreviewData(import.meta.env.BASE_URL);
 
 function currentArtUrl() {
   return `${import.meta.env.BASE_URL}assets/rainy-wuwa-hero.png`;
@@ -157,6 +160,24 @@ function CompleteRules({ config }: { config: PublicContestConfig }) {
   );
 }
 
+function ActivityRewards() {
+  const rewardSlots = [
+    { index: '01', title: '奖励信息即将公布', copy: '奖项名称与评选细则将在活动正式公告中更新。' },
+    { index: '02', title: '奖励内容待揭晓', copy: '具体奖品、数量及发放方式以后续公告为准。' },
+    { index: '03', title: '每一份创作都值得被看见', copy: '作品展示、入围与奖励资格以运营审核及最终公示为准。' }
+  ];
+
+  return (
+    <section className="content-section rewards-section" id="rewards">
+      <div className="section-heading"><p>活动回馈</p><h2>把灵感，留在这场雨里</h2></div>
+      <p className="rewards-intro">本活动奖励正在筹备中，奖品信息会在后续公告中统一公布。</p>
+      <div className="rewards-grid">
+        {rewardSlots.map((slot) => <article key={slot.index} className="reward-slot"><span>{slot.index}</span><h3>{slot.title}</h3><p>{slot.copy}</p></article>)}
+      </div>
+    </section>
+  );
+}
+
 export function App({ api }: AppProps) {
   const client = useMemo(() => api ?? new PublicActivityClient(), [api]);
   const [, messageContext] = message.useMessage();
@@ -164,6 +185,7 @@ export function App({ api }: AppProps) {
   const [config, setConfig] = useState<PublicContestConfig>(fallbackConfig);
   const [configReady, setConfigReady] = useState(false);
   const [configLoadFailed, setConfigLoadFailed] = useState(false);
+  const [localPreview, setLocalPreview] = useState(false);
   const [activeTrackId, setActiveTrackId] = useState<ContestTrackId>('resonance-theatre');
   const [submissionTrackId, setSubmissionTrackId] = useState<ContestTrackId>('resonance-theatre');
   const [gallery, setGallery] = useState<PublicGalleryWork[]>([]);
@@ -193,18 +215,33 @@ export function App({ api }: AppProps) {
     client.loadConfig().then((nextConfig) => {
       if (!live) return;
       setConfig(nextConfig);
+      setLocalPreview(false);
       setConfigReady(true);
       setActiveTrackId((current) => nextConfig.tracks.some((track) => track.id === current) ? current : nextConfig.tracks[0]?.id ?? 'resonance-theatre');
       setSubmissionTrackId((current) => nextConfig.tracks.some((track) => track.id === current) ? current : nextConfig.tracks[0]?.id ?? 'resonance-theatre');
-    }).catch(() => { if (live) setConfigLoadFailed(true); });
+    }).catch(() => {
+      if (!live) return;
+      if (import.meta.env.DEV) {
+        setConfig(demoPreviewConfig);
+        setLocalPreview(true);
+        setConfigReady(true);
+        setConfigLoadFailed(false);
+        return;
+      }
+      setConfigLoadFailed(true);
+    });
     return () => { live = false; };
   }, [client]);
 
   useEffect(() => {
     let live = true;
+    if (localPreview) {
+      setGallery(localDemoData.galleryByTrack[activeTrackId] ?? []);
+      return () => { live = false; };
+    }
     client.listGallery(activeTrackId).then((works) => { if (live) setGallery(works); }).catch(() => { if (live) setGallery([]); });
     return () => { live = false; };
-  }, [activeTrackId, client]);
+  }, [activeTrackId, client, localPreview]);
 
   function selectTrack(trackId: ContestTrackId) {
     setActiveTrackId(trackId);
@@ -242,6 +279,12 @@ export function App({ api }: AppProps) {
     setIsSubmitting(true);
     setSubmissionNotice('');
     try {
+      if (localPreview) {
+        setSubmissionNotice('投稿预览已保存（本地演示）');
+        setSelectedFiles([]);
+        form.resetFields();
+        return;
+      }
       await client.currentViewer();
       const media = await Promise.all(selectedFiles.map((file) => client.uploadMedia(file)));
       await client.submit({ trackId: submissionTrack.id, title: values.title.trim(), characterName: values.characterName?.trim(), aiTool: values.aiTool?.trim(), description: values.description?.trim(), mediaIds: media.map((item) => item.id) });
@@ -259,6 +302,12 @@ export function App({ api }: AppProps) {
     setIsPairing(true);
     setVoteNotice('');
     try {
+      if (localPreview) {
+        const nextPair = localDemoData.pairingByTrack[activeTrack.id];
+        setPair(nextPair.works);
+        setPairingAssignmentId(nextPair.assignmentId);
+        return;
+      }
       const nextPair = await client.nextPair(activeTrack.id);
       setPair(nextPair?.works ?? []);
       setPairingAssignmentId(nextPair?.assignmentId);
@@ -273,6 +322,13 @@ export function App({ api }: AppProps) {
   async function choosePair(workId: string) {
     if (pair.length !== 2 || !pairingAssignmentId) return;
     try {
+      if (localPreview) {
+        setPairRemaining((current) => Math.max(0, current - 1));
+        setPair([]);
+        setPairingAssignmentId(undefined);
+        setVoteNotice(`已选择「${pair.find((work) => work.id === workId)?.title ?? '作品'}」（本地演示）`);
+        return;
+      }
       await client.castPairingVote({ trackId: activeTrack.id, assignmentId: pairingAssignmentId, preferredWorkId: workId });
       setPairRemaining((current) => Math.max(0, current - 1));
       setPair([]);
@@ -295,6 +351,13 @@ export function App({ api }: AppProps) {
     setIsVoting(true);
     setVoteNotice('');
     try {
+      if (localPreview) {
+        setVotedWorkIds((current) => new Set(current).add(work.id));
+        setFinalVotesRemaining((current) => Math.max(0, current - 1));
+        setGallery((current) => current.map((item) => item.id === work.id ? { ...item, finalVotes: item.finalVotes + 1 } : item));
+        setVoteNotice('本地演示投票已记录。');
+        return;
+      }
       const result = await client.castFinalVote({ trackId: activeTrack.id, workId: work.id });
       setVotedWorkIds((current) => new Set(current).add(work.id));
       setFinalVotesRemaining(result.remainingAfter);
@@ -317,12 +380,12 @@ export function App({ api }: AppProps) {
         <section className="hero" id="rules">
           <header className="site-header"><a className="brand" href="#rules" aria-label="返回活动首页"><i />鸣潮 · 创作征集</a><nav aria-label="活动导航"><a href="#rules" onClick={(event) => { event.preventDefault(); setRulesOpen(true); }}>活动规则</a>{showSubmission ? <a href="#submit" onClick={(event) => { event.preventDefault(); openSubmission(); }}>我要投稿</a> : null}{showPairing || showFinalVote ? <a href="#vote">参与投票</a> : null}</nav></header>
           <div className="hero-ink" />
-          <div className="hero-content"><h1>雨落拉海洛，<br />共鸣成新章。</h1><p className="hero-date">{!configReady ? '正在加载活动阶段与时间…' : configLoadFailed ? '活动配置暂不可用，请稍后重试' : <>当前开放：{config.phase === 'closed' ? '活动已结束' : stageOrder.find((stage) => stage.phase === config.phase)?.scheduleKey ? config.schedule[stageOrder.find((stage) => stage.phase === config.phase)!.scheduleKey].label : '活动状态待发布'} · {config.previewMode ? '运营预览模式：全阶段展示' : '仅展示当前活动阶段'}</>}</p><div className="hero-actions">{heroAction}<Button onClick={() => setRulesOpen(true)} size="large">查看完整规则 <ArrowRightOutlined /></Button></div></div>
+          <div className="hero-content"><div className="hero-kicker"><strong>鸣潮小站 × AI 创作小站联合举办</strong><span>Bilibili Toy 小站活动 · 非鸣潮官方活动</span></div><h1>雨落拉海洛，<br />共鸣成新章。</h1><p className="hero-date">{!configReady ? '正在加载活动阶段与时间…' : configLoadFailed ? '活动配置暂不可用，请稍后重试' : <>当前开放：{config.phase === 'closed' ? '活动已结束' : stageOrder.find((stage) => stage.phase === config.phase)?.scheduleKey ? config.schedule[stageOrder.find((stage) => stage.phase === config.phase)!.scheduleKey].label : '活动状态待发布'} · {config.previewMode ? '运营预览模式：全阶段展示' : '仅展示当前活动阶段'}</>}</p><div className="hero-actions">{heroAction}<Button onClick={() => setRulesOpen(true)} size="large">查看完整规则 <ArrowRightOutlined /></Button></div></div>
           <img className="hero-art" src={currentArtUrl()} alt="雨巷中的国风角色插画" />
           <div className="hero-stage" aria-label="活动周期">{stageOrder.map((stage) => { const item = config.schedule[stage.scheduleKey]; const active = config.phase === stage.phase; return <span className={active ? 'active-stage' : ''} key={stage.phase}><b>{stage.number}</b><i><strong>{item.label}</strong><small>{formatSchedule(item.startAt, item.endAt)}</small></i></span>; })}</div>
         </section>
 
-        <section className="content-section rules-section"><div className="section-heading"><p>参与之前</p><h2>选择赛道，再开始创作</h2></div><TrackTabs activeTrackId={activeTrack.id} onChange={selectTrack} tracks={config.tracks} /><RulePanel track={activeTrack} /><CharacterDuo /></section>
+        <section className="content-section rules-section"><div className="section-heading"><p>参与之前</p><h2>选择赛道，再开始创作</h2></div><TrackTabs activeTrackId={activeTrack.id} onChange={selectTrack} tracks={config.tracks} /><RulePanel track={activeTrack} /><div className="vote-rules"><article><span>盲选阶段</span><h3>每赛道 3 次二选一</h3><p>两件作品中选出更喜欢的一件。系统优先派发出现次数更少的作品，让每件作品获得大致均衡的展示机会。</p></article><article><span>投票阶段</span><h3>每赛道每日 3 票</h3><p>入围作品公开展示作者头像、昵称与实时票数；同一作品当天只能投一次。</p></article></div><CharacterDuo /></section>
 
         {showSubmission ? <section className="content-section participation-section" id="submit"><div className="section-heading"><p>{config.schedule.submission.label}</p><h2>把你的灵感留在这场雨里</h2></div><Card className="submit-callout" variant="borderless"><div><h3>投稿时间</h3><p>{formatSchedule(config.schedule.submission.startAt, config.schedule.submission.endAt)}。选择赛道后上传图片或视频，审核通过后会进入后续活动阶段。</p></div><Button icon={<CloudUploadOutlined />} onClick={() => openSubmission()} type="primary">填写投稿信息</Button></Card></section> : null}
 
@@ -331,7 +394,9 @@ export function App({ api }: AppProps) {
           {showFinalVote ? <><div className="gallery-heading"><div><span>{config.schedule.finalVote.label} · 入围展示</span><h3>为喜欢的作品投票</h3></div><p>{formatSchedule(config.schedule.finalVote.startAt, config.schedule.finalVote.endAt)} · 每个赛道每日 3 票 · 还可投 {finalVotesRemaining} 票</p></div>{voteNotice ? <Alert className="vote-notice" message={voteNotice} showIcon type={voteNotice.includes('已记录') ? 'success' : 'info'} /> : null}{gallery.length > 0 ? <div className="gallery-grid">{gallery.map((work) => <GalleryCard key={work.id} onVote={() => void voteForFinalist(work)} voted={votedWorkIds.has(work.id) || isVoting} work={work} />)}</div> : <Empty className="gallery-empty" description="入围作品将在投票阶段开放展示" />}</> : null}
         </section> : null}
 
-        <footer>鸣潮 AI 二创主题征集 · 原创内容与社区规范共同守护</footer>
+        <ActivityRewards />
+
+        <footer>鸣潮小站 × AI 创作小站联合活动 · Bilibili Toy 小站活动，非鸣潮官方活动 · 原创内容与社区规范共同守护</footer>
 
         <Modal className="rules-modal" footer={<Button key="close" onClick={() => setRulesOpen(false)} type="primary">我已了解</Button>} onCancel={() => setRulesOpen(false)} open={rulesOpen} title="活动完整规则"><CompleteRules config={config} /></Modal>
 
@@ -345,7 +410,7 @@ export function App({ api }: AppProps) {
             <Form.Item label="使用的 AI 工具" name="aiTool"><Input maxLength={60} placeholder="例如：绘图、视频或剪辑工具" /></Form.Item>
             <Form.Item label="创作说明" name="description"><Input.TextArea maxLength={500} placeholder="说说你的创作思路" rows={4} showCount /></Form.Item>
             <div className="file-picker"><label htmlFor="media-input">作品文件</label><p className="media-kind-hint">{acceptedMediaText(submissionTrack)}</p><input accept={submissionTrack.acceptedMedia.map((kind) => kind === 'image' ? 'image/*' : 'video/*').join(',')} aria-label="添加作品文件" id="media-input" multiple onChange={(event) => setSelectedFiles(Array.from(event.target.files ?? []))} type="file" /><p>{selectedFiles.length ? `${detectedMediaType(selectedFiles)} · 已选择 ${selectedFiles.length} 个文件：${selectedFiles.map((file) => file.name).join('、')}` : `本赛道：${acceptedMediaText(submissionTrack)}`}</p></div>
-            {submissionNotice ? <Alert className="submission-notice" message={submissionNotice} showIcon type={submissionNotice === '投稿已保存，等待审核' ? 'success' : 'warning'} /> : null}
+            {submissionNotice ? <Alert className="submission-notice" message={submissionNotice} showIcon type={submissionNotice.includes('已保存') ? 'success' : 'warning'} /> : null}
             <Button aria-label="提交作品" block htmlType="submit" icon={<CloudUploadOutlined />} loading={isSubmitting} size="large" type="primary">提交作品</Button>
           </Form>
         </Drawer>
