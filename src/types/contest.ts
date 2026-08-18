@@ -1,5 +1,7 @@
 export type ContestTrackId = 'resonance-theatre' | 'brocade-wardrobe';
 
+export type ContestPhase = 'submission' | 'pairing' | 'final-vote' | 'closed';
+
 export type ContestWorkStatus = 'draft' | 'pending' | 'approved' | 'finalist' | 'hidden';
 
 export interface ContestWorkEntry {
@@ -73,8 +75,42 @@ export interface PublicTrack {
 }
 
 export interface PublicContestConfig {
-  phase: 'submission' | 'pairing' | 'final-vote' | 'closed';
+  phase: ContestPhase;
+  previewMode: boolean;
+  schedule: PublicContestSchedule;
   tracks: PublicTrack[];
+}
+
+export interface ActivityStageSchedule {
+  label: string;
+  startAt?: string;
+  endAt?: string;
+}
+
+export interface PublicContestSchedule {
+  submission: ActivityStageSchedule;
+  pairing: ActivityStageSchedule;
+  finalVote: ActivityStageSchedule;
+}
+
+export interface ActivitySettings {
+  phase: ContestPhase;
+  previewMode: boolean;
+  schedule: PublicContestSchedule;
+}
+
+export interface ActivitySettingsRepository {
+  getActivitySettings(): Promise<ActivitySettings>;
+  saveActivitySettings(settings: ActivitySettings): Promise<ActivitySettings>;
+}
+
+export interface RateLimitRule {
+  limit: number;
+  windowMs: number;
+}
+
+export interface RequestRateLimiter {
+  consume(viewerId: string, route: string, rule: RateLimitRule, now?: number): Promise<boolean>;
 }
 
 export interface PublicGalleryWork {

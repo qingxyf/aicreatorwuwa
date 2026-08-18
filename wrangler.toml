@@ -4,6 +4,8 @@ compatibility_date = "2026-08-18"
 
 [vars]
 MODE = "production"
+# Set this to the exact origin serving the Toy public page before deployment.
+PUBLIC_APP_ORIGIN = "https://your-toy-public-page.example"
 
 [[d1_databases]]
 binding = "DB"

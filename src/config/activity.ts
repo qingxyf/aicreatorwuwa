@@ -1,3 +1,4 @@
+import type { ActivitySettings } from '../types/contest';
 import type { ContestPhase, TrackDefinition } from '../types/activity';
 
 export const contestTimezone = 'Asia/Shanghai';
@@ -26,3 +27,13 @@ export const trackDefinitions: TrackDefinition[] = [
 ];
 
 export const defaultContestPhase: ContestPhase = 'submission';
+
+export const defaultActivitySettings: ActivitySettings = {
+  phase: defaultContestPhase,
+  previewMode: false,
+  schedule: {
+    submission: { label: '投稿阶段' },
+    pairing: { label: '盲选阶段' },
+    finalVote: { label: '投票阶段' }
+  }
+};
