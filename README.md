@@ -31,7 +31,7 @@
 
 ### GitHub Pages 预览
 
-仓库公开后，`main` 分支会由 `.github/workflows/pages.yml` 自动构建静态预览，地址为：<https://qingxyf.github.io/aicreatorwuwa/>。该地址只托管前端静态页面；投稿、投票和运营后台仍需要配置 `VITE_API_BASE_URL` 指向已部署的 Worker，未连接 Worker 时仅在开发构建中使用本地演示回退。
+仓库公开后，`main` 分支会由 `.github/workflows/pages.yml` 自动构建静态预览，地址为：<https://qingxyf.github.io/aicreatorwuwa/>。该地址只托管前端静态页面，并显式启用本地演示数据用于完整流程预览；投稿、投票和运营后台要在正式环境中工作，仍需要配置 `VITE_API_BASE_URL` 指向已部署的 Worker。
 
 ```powershell
 npm ci

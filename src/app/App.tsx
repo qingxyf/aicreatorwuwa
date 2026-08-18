@@ -25,6 +25,7 @@ import {
 import { PublicActivityClient, type ActivityHttpClient } from '../adapters/http/public-activity-client';
 import { defaultActivitySettings, trackDefinitions } from '../config/activity';
 import { createDemoPreviewData, demoPreviewConfig } from '../config/demo-preview';
+import { canUseDemoPreview } from '../config/static-preview';
 import { isPublicPhaseVisible } from '../domain/activity-phase';
 import type { ContestPhase, ContestTrackId, PublicContestConfig, PublicGalleryWork, PublicPairingWork, PublicTrack } from '../types/contest';
 import { useScrollReveal } from './use-scroll-reveal';
@@ -222,7 +223,7 @@ export function App({ api }: AppProps) {
       setSubmissionTrackId((current) => nextConfig.tracks.some((track) => track.id === current) ? current : nextConfig.tracks[0]?.id ?? 'resonance-theatre');
     }).catch(() => {
       if (!live) return;
-      if (import.meta.env.DEV) {
+      if (canUseDemoPreview(import.meta.env)) {
         setConfig(demoPreviewConfig);
         setLocalPreview(true);
         setConfigReady(true);
