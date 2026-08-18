@@ -56,6 +56,13 @@ function createApi(configOverrides: Partial<Awaited<ReturnType<PublicActivityApi
 }
 
 describe('public activity experience', () => {
+  test('reveals public sections immediately when scroll observation is unavailable', async () => {
+    render(<App api={createApi()} />);
+
+    const section = await screen.findByRole('heading', { name: '选择赛道，再开始创作' });
+    expect(section.closest('[data-motion-reveal]')).toHaveAttribute('data-motion-visible', 'true');
+  });
+
   test('shows the current phase only in public navigation and content', async () => {
     render(<App api={createApi()} />);
     expect(screen.getByRole('link', { name: '活动规则' })).toBeVisible();

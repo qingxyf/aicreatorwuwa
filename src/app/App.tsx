@@ -27,6 +27,7 @@ import { defaultActivitySettings, trackDefinitions } from '../config/activity';
 import { createDemoPreviewData, demoPreviewConfig } from '../config/demo-preview';
 import { isPublicPhaseVisible } from '../domain/activity-phase';
 import type { ContestPhase, ContestTrackId, PublicContestConfig, PublicGalleryWork, PublicPairingWork, PublicTrack } from '../types/contest';
+import { useScrollReveal } from './use-scroll-reveal';
 import './styles.css';
 
 export type PublicActivityApi = ActivityHttpClient;
@@ -114,7 +115,7 @@ function TrackTabs({ tracks, activeTrackId, onChange }: { tracks: PublicTrack[];
 
 function RulePanel({ track }: { track: PublicTrack }) {
   return (
-    <Card className="rule-card" variant="borderless">
+    <Card className="rule-card" data-motion-reveal="" variant="borderless">
       <div className="rule-card-head"><div><p>当前赛道</p><h3>{track.title}</h3></div><Tag bordered={false} color="gold">每账号限提交 1 件</Tag></div>
       <p className="rule-summary">{track.summary}</p>
       <ul>{track.requirements.map((requirement) => <li key={requirement}><CheckCircleFilled />{requirement}</li>)}</ul>
@@ -135,9 +136,9 @@ function PairingCard({ work, onSelect }: { work: PublicPairingWork; onSelect: ()
   return <button className="pairing-work" onClick={onSelect} type="button"><MediaArtwork media={work.media} title={work.title} compact /><span>{work.title}</span><strong>选这一件 <ArrowRightOutlined /></strong></button>;
 }
 
-function GalleryCard({ work, voted, onVote }: { work: PublicGalleryWork; voted: boolean; onVote: () => void }) {
+function GalleryCard({ work, voted, onVote, motionDelay }: { work: PublicGalleryWork; voted: boolean; onVote: () => void; motionDelay?: number }) {
   return (
-    <article className="gallery-card">
+    <article className="gallery-card" data-motion-delay={motionDelay ?? 0} data-motion-reveal="">
       <MediaArtwork media={work.media} title={work.title} />
       <div className="gallery-content"><div className="gallery-meta"><Avatar alt={`${work.authorName}的头像`} size={28} src={work.authorAvatar}>{work.authorName.slice(0, 1)}</Avatar><span>{work.authorName}</span><em>{work.finalVotes} 票</em></div><h4>{work.title}</h4>
         <Button aria-label={`投票给 ${work.title}`} block className={voted ? 'voted-button' : ''} icon={voted ? <CheckCircleFilled /> : <HeartFilled />} onClick={onVote} type={voted ? 'default' : 'primary'}>{voted ? '今日已投' : '投给这件作品'}</Button>
@@ -167,11 +168,11 @@ function ActivityRewards() {
   ];
 
   return (
-    <section className="content-section rewards-section" id="rewards">
+    <section className="content-section rewards-section" data-motion-reveal="" id="rewards">
       <div className="section-heading"><p>活动回馈</p><h2>把灵感，留在这场雨里</h2></div>
       <p className="rewards-intro">本活动奖励正在筹备中，奖品信息会在后续公告中统一公布。</p>
       <div className="rewards-grid">
-        {rewardSlots.map((slot) => <article key={slot.index} className="reward-slot"><span>{slot.index}</span><h3>{slot.title}</h3><p>{slot.copy}</p></article>)}
+        {rewardSlots.map((slot, index) => <article data-motion-delay={String(index * 80)} data-motion-reveal="" key={slot.index} className="reward-slot"><span>{slot.index}</span><h3>{slot.title}</h3><p>{slot.copy}</p></article>)}
       </div>
     </section>
   );
@@ -179,6 +180,7 @@ function ActivityRewards() {
 
 export function App({ api }: AppProps) {
   const client = useMemo(() => api ?? new PublicActivityClient(), [api]);
+  const { rootRef, motionReady } = useScrollReveal();
   const [, messageContext] = message.useMessage();
   const [form] = Form.useForm<SubmissionFormValues>();
   const [config, setConfig] = useState<PublicContestConfig>(fallbackConfig);
@@ -375,22 +377,22 @@ export function App({ api }: AppProps) {
   return (
     <ConfigProvider theme={{ token: { colorPrimary: '#cb8d48', borderRadius: 10, fontFamily: '"Noto Serif SC", "Songti SC", serif' } }}>
       {messageContext}
-      <main className="site-shell">
+      <main className={motionReady ? 'site-shell motion-ready' : 'site-shell'} ref={rootRef}>
         <section className="hero" id="rules">
           <header className="site-header"><a className="brand" href="#rules" aria-label="返回活动首页"><i />鸣潮 · AI 二创主题征集</a><nav aria-label="活动导航"><a href="#rules" onClick={(event) => { event.preventDefault(); setRulesOpen(true); }}>活动规则</a>{showSubmission ? <a href="#submit" onClick={(event) => { event.preventDefault(); openSubmission(); }}>我要投稿</a> : null}{showPairing || showFinalVote ? <a href="#vote">参与投票</a> : null}</nav></header>
           <div className="hero-ink" />
           <div className="hero-content"><div className="hero-kicker"><strong>鸣潮小站 × AI 创作小站联合举办</strong><span>Bilibili Toy 小站活动</span></div><h1>雨落拉海洛，<br />共鸣成新章。</h1><p className="hero-themes"><strong>共鸣小剧场</strong> · AI 四格漫画创作赛 <i>×</i> <strong>衣锦还裳</strong> · 拉海洛国风换装秀</p><p className="hero-date">{!configReady ? '正在加载活动阶段与时间…' : configLoadFailed ? '活动配置暂不可用，请稍后重试' : <>当前开放：{config.phase === 'closed' ? '活动已结束' : stageOrder.find((stage) => stage.phase === config.phase)?.scheduleKey ? config.schedule[stageOrder.find((stage) => stage.phase === config.phase)!.scheduleKey].label : '活动状态待发布'} · {config.previewMode ? '运营预览模式：全阶段展示' : '仅展示当前活动阶段'}</>}</p><div className="hero-actions">{heroAction}<Button onClick={() => setRulesOpen(true)} size="large">查看完整规则 <ArrowRightOutlined /></Button></div></div>
           <img className="hero-art" src={currentArtUrl()} alt="雨巷中的国风角色插画" />
-          <div className="hero-stage" aria-label="活动周期">{stageOrder.map((stage) => { const item = config.schedule[stage.scheduleKey]; const active = config.phase === stage.phase; return <span className={active ? 'active-stage' : ''} key={stage.phase}><b>{stage.number}</b><i><strong>{item.label}</strong><small>{formatSchedule(item.startAt, item.endAt)}</small></i></span>; })}</div>
+          <div aria-label="活动周期" className="hero-stage" data-motion-reveal="">{stageOrder.map((stage) => { const item = config.schedule[stage.scheduleKey]; const active = config.phase === stage.phase; return <span className={active ? 'active-stage' : ''} key={stage.phase}><b>{stage.number}</b><i><strong>{item.label}</strong><small>{formatSchedule(item.startAt, item.endAt)}</small></i></span>; })}</div>
         </section>
 
-        <section className="content-section rules-section"><div className="section-heading"><p>参与之前</p><h2>选择赛道，再开始创作</h2></div><TrackTabs activeTrackId={activeTrack.id} onChange={selectTrack} tracks={config.tracks} /><RulePanel track={activeTrack} /><div className="vote-rules"><article><span>盲选阶段</span><h3>每个赛道 3 票</h3><p>每次从两件作品中选 1 件。系统优先安排曝光较少的作品，让每件作品获得更均衡的展示机会。</p></article><article><span>投票阶段</span><h3>每赛道每日 3 票</h3><p>入围作品公开展示作者头像、昵称与实时票数；同一作品当天只能投一次。</p></article></div><CharacterDuo /></section>
+        <section className="content-section rules-section" data-motion-reveal=""><div className="section-heading"><p>参与之前</p><h2>选择赛道，再开始创作</h2></div><TrackTabs activeTrackId={activeTrack.id} onChange={selectTrack} tracks={config.tracks} /><RulePanel track={activeTrack} /><div className="vote-rules"><article data-motion-delay="80" data-motion-reveal=""><span>盲选阶段</span><h3>每个赛道 3 票</h3><p>每次从两件作品中选 1 件。系统优先安排曝光较少的作品，让每件作品获得更均衡的展示机会。</p></article><article data-motion-delay="160" data-motion-reveal=""><span>投票阶段</span><h3>每赛道每日 3 票</h3><p>入围作品公开展示作者头像、昵称与实时票数；同一作品当天只能投一次。</p></article></div><CharacterDuo /></section>
 
-        {showSubmission ? <section className="content-section participation-section" id="submit"><div className="section-heading"><p>{config.schedule.submission.label}</p><h2>把你的灵感留在这场雨里</h2></div><Card className="submit-callout" variant="borderless"><div><h3>投稿时间</h3><p>{formatSchedule(config.schedule.submission.startAt, config.schedule.submission.endAt)}。选择赛道后上传图片或视频，审核通过后会进入后续活动阶段。</p></div><Button icon={<CloudUploadOutlined />} onClick={() => openSubmission()} type="primary">填写投稿信息</Button></Card></section> : null}
+        {showSubmission ? <section className="content-section participation-section" data-motion-reveal="" id="submit"><div className="section-heading"><p>{config.schedule.submission.label}</p><h2>把你的灵感留在这场雨里</h2></div><Card className="submit-callout" data-motion-reveal="" variant="borderless"><div><h3>投稿时间</h3><p>{formatSchedule(config.schedule.submission.startAt, config.schedule.submission.endAt)}。选择赛道后上传图片或视频，审核通过后会进入后续活动阶段。</p></div><Button icon={<CloudUploadOutlined />} onClick={() => openSubmission()} type="primary">填写投稿信息</Button></Card></section> : null}
 
-        {showPairing || showFinalVote ? <section className="content-section vote-section" id="vote"><div className="section-heading"><p>参与选择</p><h2>你的每一次选择都很重要</h2></div><TrackTabs activeTrackId={activeTrack.id} onChange={selectTrack} tracks={config.tracks} />
-          {showPairing ? <div className="pairing-panel"><div className="pairing-head"><div><span>{config.schedule.pairing.label} · 每个赛道 3 票</span><h3>让作品公平地相遇</h3></div><Progress percent={(pairRemaining / 3) * 100} showInfo={false} strokeColor="#cb8d48" trailColor="rgba(203,141,72,.16)" /></div><p>{formatSchedule(config.schedule.pairing.startAt, config.schedule.pairing.endAt)} · 本赛道还可投 {pairRemaining} 票</p>{pair.length === 2 ? <div className="pairing-grid"><PairingCard work={pair[0]} onSelect={() => void choosePair(pair[0].id)} /><div className="versus">VS</div><PairingCard work={pair[1]} onSelect={() => void choosePair(pair[1].id)} /></div> : <Button disabled={pairRemaining === 0} loading={isPairing} onClick={() => void requestPair()} size="large" type="primary">开始盲选</Button>}</div> : null}
-          {showFinalVote ? <><div className="gallery-heading"><div><span>{config.schedule.finalVote.label} · 入围展示</span><h3>为喜欢的作品投票</h3></div><p>{formatSchedule(config.schedule.finalVote.startAt, config.schedule.finalVote.endAt)} · 每个赛道每日 3 票 · 还可投 {finalVotesRemaining} 票</p></div>{voteNotice ? <Alert className="vote-notice" message={voteNotice} showIcon type={voteNotice.includes('已记录') ? 'success' : 'info'} /> : null}{gallery.length > 0 ? <div className="gallery-grid">{gallery.map((work) => <GalleryCard key={work.id} onVote={() => void voteForFinalist(work)} voted={votedWorkIds.has(work.id) || isVoting} work={work} />)}</div> : <Empty className="gallery-empty" description="入围作品将在投票阶段开放展示" />}</> : null}
+        {showPairing || showFinalVote ? <section className="content-section vote-section" data-motion-reveal="" id="vote"><div className="section-heading"><p>参与选择</p><h2>你的每一次选择都很重要</h2></div><TrackTabs activeTrackId={activeTrack.id} onChange={selectTrack} tracks={config.tracks} />
+          {showPairing ? <div className="pairing-panel" data-motion-reveal=""><div className="pairing-head"><div><span>{config.schedule.pairing.label} · 每个赛道 3 票</span><h3>让作品公平地相遇</h3></div><Progress percent={(pairRemaining / 3) * 100} showInfo={false} strokeColor="#cb8d48" trailColor="rgba(203,141,72,.16)" /></div><p>{formatSchedule(config.schedule.pairing.startAt, config.schedule.pairing.endAt)} · 本赛道还可投 {pairRemaining} 票</p>{pair.length === 2 ? <div className="pairing-grid"><PairingCard work={pair[0]} onSelect={() => void choosePair(pair[0].id)} /><div className="versus">VS</div><PairingCard work={pair[1]} onSelect={() => void choosePair(pair[1].id)} /></div> : <Button disabled={pairRemaining === 0} loading={isPairing} onClick={() => void requestPair()} size="large" type="primary">开始盲选</Button>}</div> : null}
+          {showFinalVote ? <><div className="gallery-heading"><div><span>{config.schedule.finalVote.label} · 入围展示</span><h3>为喜欢的作品投票</h3></div><p>{formatSchedule(config.schedule.finalVote.startAt, config.schedule.finalVote.endAt)} · 每个赛道每日 3 票 · 还可投 {finalVotesRemaining} 票</p></div>{voteNotice ? <Alert className="vote-notice" message={voteNotice} showIcon type={voteNotice.includes('已记录') ? 'success' : 'info'} /> : null}{gallery.length > 0 ? <div className="gallery-grid">{gallery.map((work, index) => <GalleryCard key={work.id} motionDelay={index * 80} onVote={() => void voteForFinalist(work)} voted={votedWorkIds.has(work.id) || isVoting} work={work} />)}</div> : <Empty className="gallery-empty" description="入围作品将在投票阶段开放展示" />}</> : null}
         </section> : null}
 
         <ActivityRewards />
