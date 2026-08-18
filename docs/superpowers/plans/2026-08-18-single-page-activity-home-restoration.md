@@ -51,4 +51,4 @@
 - [x] Run `npm test -- --run` and confirm all public experience and config tests pass.
 - [x] Run `npm run build`, `npm run lint`, `npm run check:architecture`, and `npm run check:bundle-size`.
 - [x] Run `npm run dev -- --host 127.0.0.1 --port 4185`, inspect the single-page preview in Browser/IAB at desktop and 390px widths, and confirm no console errors.
-- [ ] Commit the implementation with `feat: restore single-page activity home preview`.
+- [x] Commit the implementation with `feat: restore single-page activity home preview`.
