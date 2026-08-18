@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from 'react';
-import { Alert, Avatar, Button, Card, ConfigProvider, Empty, Input, Select, Spin, Statistic, Switch, Table, Tag } from 'antd';
+import { useMemo, useState } from 'react';
+import { Alert, Avatar, Button, Card, ConfigProvider, Empty, Input, Select, Statistic, Switch, Table, Tag } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import { PublicActivityClient, type OperationsHttpClient } from '../adapters/http/public-activity-client';
 import type { ActivitySettings, ContestWorkStatus, OperatorSubmission } from '../types/contest';
@@ -43,23 +43,25 @@ export function OpsApp({ api }: OpsAppProps) {
   const [submissions, setSubmissions] = useState<OperatorSubmission[]>([]);
   const [settings, setSettings] = useState<ActivitySettings>();
   const [authorized, setAuthorized] = useState(false);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
-  useEffect(() => {
-    let live = true;
-    Promise.all([client.currentViewer(), client.listSubmissions(), client.getActivitySettings()])
-      .then(([, records, activitySettings]) => {
-        if (!live) return;
-        setSubmissions(records);
-        setSettings(activitySettings);
-        setAuthorized(true);
-      })
-      .catch((reason: unknown) => { if (live) setError(reason instanceof Error ? reason.message : '白名单验证失败'); })
-      .finally(() => { if (live) setLoading(false); });
-    return () => { live = false; };
-  }, [client]);
+  async function enterOperations() {
+    setLoading(true);
+    setError('');
+    try {
+      await client.currentViewer();
+      const [records, activitySettings] = await Promise.all([client.listSubmissions(), client.getActivitySettings()]);
+      setSubmissions(records);
+      setSettings(activitySettings);
+      setAuthorized(true);
+    } catch (reason: unknown) {
+      setError(reason instanceof Error ? reason.message : '白名单验证失败');
+    } finally {
+      setLoading(false);
+    }
+  }
 
   async function updateStatus(item: OperatorSubmission, status: ContestWorkStatus, isDisplayed = item.isDisplayed) {
     const displayed = status === 'finalist' && isDisplayed;
@@ -102,9 +104,9 @@ export function OpsApp({ api }: OpsAppProps) {
   return (
     <ConfigProvider theme={{ token: { colorPrimary: '#8a5c34', borderRadius: 10, fontFamily: '"Noto Serif SC", "Songti SC", serif' } }}>
       <main className="ops-shell"><header className="ops-header"><div><p>受保护入口</p><h1>运营工作台</h1></div>{authorized ? <Tag color="success">白名单验证通过</Tag> : null}</header>
-        {loading ? <Spin className="ops-loading" size="large" /> : null}
         {error ? <Alert message="无法完成运营操作" description={error} showIcon type="error" /> : null}
-        {!loading && authorized ? <>
+        {!authorized ? <Card className="ops-login-card" title="验证运营身份"><p>请在 Bilibili Toy 内点击验证，平台会先确认你的账号资料，再检查运营白名单。</p><Button loading={loading} onClick={() => void enterOperations()} type="primary">验证身份并进入</Button></Card> : null}
+        {authorized ? <>
           {settings ? <Card className="ops-settings" title="活动流程与对外时间"><div className="ops-settings-controls"><label>当前公开阶段<Select aria-label="当前公开阶段" onChange={(phase) => setSettings((current) => current ? { ...current, phase } : current)} options={phaseOptions} value={settings.phase} /></label><label className="preview-switch">测试预览<Switch aria-label="测试预览" checked={settings.previewMode} onChange={(previewMode) => setSettings((current) => current ? { ...current, previewMode } : current)} /><small>开启后，公开端同时显示投稿、盲选和投票流程。</small></label></div>
             <div className="ops-schedule-grid">{(Object.keys(settings.schedule) as Array<keyof ActivitySettings['schedule']>).map((stage) => <div key={stage}><strong>{settings.schedule[stage].label}</strong><Input aria-label={`${settings.schedule[stage].label}开始时间`} onChange={(event) => updateSchedule(stage, 'startAt', event.target.value)} placeholder="2026-08-20T00:00:00+08:00" value={stageTimestamp(settings, stage, 'startAt')} /><Input aria-label={`${settings.schedule[stage].label}结束时间`} onChange={(event) => updateSchedule(stage, 'endAt', event.target.value)} placeholder="2026-09-02T23:59:59+08:00" value={stageTimestamp(settings, stage, 'endAt')} /></div>)}</div>
             <Button loading={saving} onClick={() => void saveActivitySettings()} type="primary">保存活动流程</Button></Card> : null}

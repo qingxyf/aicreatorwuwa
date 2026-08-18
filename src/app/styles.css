@@ -420,11 +420,12 @@ footer { border-top: 1px solid rgba(232,208,160,.13); color: rgba(247,240,229,.4
 .complete-rules li strong { color: #f2d294; white-space: nowrap; }
 .complete-rules li span { text-align: right; }
 
-.ops-shell { color: #25282d; margin: 0 auto; max-width: 1320px; min-height: 100vh; padding: 50px 28px; }
+.ops-shell { background: #f5f3ef; box-shadow: 0 0 0 100vmax #f5f3ef; clip-path: inset(0 -100vmax); color: #25282d; margin: 0 auto; max-width: 1320px; min-height: 100vh; padding: 50px 28px; }
 .ops-header { align-items: center; border-bottom: 1px solid rgba(42,45,52,.13); display: flex; justify-content: space-between; margin-bottom: 28px; padding-bottom: 25px; }
 .ops-header p { color: #8a5c34; font-family: "PingFang SC", "Microsoft YaHei", sans-serif; font-size: 12px; letter-spacing: .12em; margin: 0 0 8px; }
 .ops-header h1 { color: #24272e; font-size: 32px; margin: 0; }
-.ops-loading { display: block; margin: 120px auto; }
+.ops-login-card { max-width: 600px; }
+.ops-login-card p { color: #6e737b; font-family: "PingFang SC", "Microsoft YaHei", sans-serif; line-height: 1.7; margin: 0 0 20px; }
 .ops-stats { background: #fff; border: 1px solid #eff0f1; display: grid; grid-template-columns: repeat(3, 1fr); margin: 0 0 22px; padding: 21px 28px; }
 .ops-settings { margin: 0 0 22px; }
 .ops-settings-controls { align-items: flex-start; display: flex; flex-wrap: wrap; gap: 24px; margin-bottom: 24px; }

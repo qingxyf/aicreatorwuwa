@@ -14,19 +14,24 @@ const activitySettings = {
 };
 
 describe('operations experience', () => {
-  test('renders only after the protected operations API has accepted the viewer', async () => {
+  test('waits for a user gesture before requesting the Toy profile', async () => {
+    const currentViewer = vi.fn(async () => ({ id: 'operator', name: '运营', avatarUrl: '' }));
     const api: OperationsApi = {
-      currentViewer: async () => ({ id: 'operator', name: '运营', avatarUrl: '' }),
+      currentViewer,
       listSubmissions: async () => [],
       setSubmissionStatus: async () => undefined,
       getActivitySettings: async () => activitySettings,
       saveActivitySettings: async () => activitySettings
     };
+    const user = userEvent.setup();
 
     render(<OpsApp api={api} />);
 
+    expect(currentViewer).not.toHaveBeenCalled();
+    await user.click(screen.getByRole('button', { name: '验证身份并进入' }));
     expect(await screen.findByRole('heading', { name: '运营工作台' })).toBeVisible();
     expect(screen.getByText('白名单验证通过')).toBeVisible();
+    expect(currentViewer).toHaveBeenCalledTimes(1);
   });
 
   test('lets an operator control finalist and public-display state separately', async () => {
@@ -54,6 +59,7 @@ describe('operations experience', () => {
     const user = userEvent.setup();
 
     render(<OpsApp api={api} />);
+    await user.click(screen.getByRole('button', { name: '验证身份并进入' }));
     await user.click(await screen.findByRole('switch', { name: '展示 雨夜新装' }));
 
     expect(setSubmissionStatus).toHaveBeenCalledWith('work-1', 'finalist', true);
@@ -70,6 +76,7 @@ describe('operations experience', () => {
     };
     const user = userEvent.setup();
     render(<OpsApp api={api} />);
+    await user.click(screen.getByRole('button', { name: '验证身份并进入' }));
 
     await user.click(await screen.findByRole('button', { name: '保存活动流程' }));
 

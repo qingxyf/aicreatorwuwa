@@ -1,6 +1,8 @@
 # Bilibili Toy SDK 接入边界
 
-已从公开 Toy SDK 示例核验：应用可加载 `https://s1.hdslb.com/bfs/seed/toy/app/sdk/toy-sdk.js`，并通过 `window.toy.getUserProfile()` 获取 `nickname`、`avatar` 和可能存在的 `toyOpenId`。个人云存储 API 仅接受字符串键值；SDK 示例没有暴露用于跨用户投稿库或图片/视频上传的公开 Toy API。
+已按 Toy JS SDK 能力清单 1.6.0（2026-08-12）核对：应用可加载 `https://s1.hdslb.com/bfs/seed/toy/app/sdk/toy-sdk.js`，并通过 `window.toy.getUserProfile()` 获取 `nickname`、`avatar` 和可能存在的 `toyOpenId`。首次没有有效授权时，资料确认必须由用户手势触发；公开端投稿/投票和 `/ops` 运营验证都遵守这一点。
+
+SDK 的 `toyOpenId` 是当前 Toy 内的稳定假名，不是登录令牌或服务端鉴权凭证。清单明确说明 SDK 不提供 UID、MID、登录令牌或确认挑战值，因此 Worker 不能仅凭浏览器上传的 `toyOpenId` 判定请求可信。个人云存储 API 只接受当前用户自己的字符串键值（每个 Toy 最多 128 个 key、每个 value 最多 1024 字节），排行榜只保留固定榜位的历史最高分；二者都不能替代跨用户投稿库、逐票投票记录或媒体存储。
 
 因此：
 
