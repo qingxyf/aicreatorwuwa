@@ -1,8 +1,11 @@
 import type { WorkEntry, WorkStatus } from '../../types/activity';
+import { defaultActivitySettings } from '../../config/activity';
 import { firstStagePolicy, secondStagePolicy } from '../../policy/voting';
 import type {
   ContestRepository,
   ContestTrackId,
+  ActivitySettings,
+  ActivitySettingsRepository,
   FinalVoteInput,
   OperatorSubmission,
   PairingVoteInput,
@@ -46,6 +49,17 @@ interface StoredPairingRow {
   mediaJson: string;
 }
 
+interface StoredActivitySettingsRow {
+  phase: ActivitySettings['phase'];
+  previewMode: number;
+  submissionStartAt: string | null;
+  submissionEndAt: string | null;
+  pairingStartAt: string | null;
+  pairingEndAt: string | null;
+  finalVoteStartAt: string | null;
+  finalVoteEndAt: string | null;
+}
+
 function mediaIdsFrom(json: string): string[] {
   try {
     const parsed: unknown = JSON.parse(json);
@@ -55,11 +69,62 @@ function mediaIdsFrom(json: string): string[] {
   }
 }
 
-export class D1ContestRepository implements ContestRepository {
+export class D1ContestRepository implements ContestRepository, ActivitySettingsRepository {
   constructor(
     private readonly database: D1Database,
     private readonly mediaBaseUrl = ''
   ) {}
+
+  async getActivitySettings(): Promise<ActivitySettings> {
+    const row = await this.database
+      .prepare(`SELECT phase, preview_mode AS previewMode,
+        submission_start_at AS submissionStartAt, submission_end_at AS submissionEndAt,
+        pairing_start_at AS pairingStartAt, pairing_end_at AS pairingEndAt,
+        final_vote_start_at AS finalVoteStartAt, final_vote_end_at AS finalVoteEndAt
+        FROM activity_settings WHERE id = 'default'`)
+      .first<StoredActivitySettingsRow>();
+    if (!row) return this.defaultActivitySettings();
+    return {
+      phase: row.phase,
+      previewMode: row.previewMode === 1,
+      schedule: {
+        submission: { label: '投稿阶段', startAt: row.submissionStartAt ?? undefined, endAt: row.submissionEndAt ?? undefined },
+        pairing: { label: '盲选阶段', startAt: row.pairingStartAt ?? undefined, endAt: row.pairingEndAt ?? undefined },
+        finalVote: { label: '投票阶段', startAt: row.finalVoteStartAt ?? undefined, endAt: row.finalVoteEndAt ?? undefined }
+      }
+    };
+  }
+
+  async saveActivitySettings(settings: ActivitySettings): Promise<ActivitySettings> {
+    await this.database
+      .prepare(
+        `INSERT INTO activity_settings (
+          id, phase, preview_mode,
+          submission_start_at, submission_end_at,
+          pairing_start_at, pairing_end_at,
+          final_vote_start_at, final_vote_end_at, updated_at
+        ) VALUES ('default', ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(id) DO UPDATE SET
+          phase = excluded.phase,
+          preview_mode = excluded.preview_mode,
+          submission_start_at = excluded.submission_start_at,
+          submission_end_at = excluded.submission_end_at,
+          pairing_start_at = excluded.pairing_start_at,
+          pairing_end_at = excluded.pairing_end_at,
+          final_vote_start_at = excluded.final_vote_start_at,
+          final_vote_end_at = excluded.final_vote_end_at,
+          updated_at = excluded.updated_at`
+      )
+      .bind(
+        settings.phase, settings.previewMode ? 1 : 0,
+        settings.schedule.submission.startAt ?? null, settings.schedule.submission.endAt ?? null,
+        settings.schedule.pairing.startAt ?? null, settings.schedule.pairing.endAt ?? null,
+        settings.schedule.finalVote.startAt ?? null, settings.schedule.finalVote.endAt ?? null,
+        new Date().toISOString()
+      )
+      .run();
+    return settings;
+  }
 
   async countActiveSubmissions(authorId: string, trackId: ContestTrackId): Promise<number> {
     const row = await this.database
@@ -331,5 +396,16 @@ export class D1ContestRepository implements ContestRepository {
       const media = mediaById.get(id);
       return media ? [media] : [];
     });
+  }
+
+  private defaultActivitySettings(): ActivitySettings {
+    return {
+      ...defaultActivitySettings,
+      schedule: {
+        submission: { ...defaultActivitySettings.schedule.submission },
+        pairing: { ...defaultActivitySettings.schedule.pairing },
+        finalVote: { ...defaultActivitySettings.schedule.finalVote }
+      }
+    };
   }
 }

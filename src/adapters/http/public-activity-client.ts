@@ -2,6 +2,7 @@ import { identityHeaders, readToyViewer } from '../toy/browser-account';
 import type {
   ClientSubmissionInput,
   ContestWorkStatus,
+  ActivitySettings,
   OperatorSubmission,
   PublicContestConfig,
   PublicGalleryWork,
@@ -24,6 +25,8 @@ export interface OperationsHttpClient {
   currentViewer(): Promise<Viewer>;
   listSubmissions(): Promise<OperatorSubmission[]>;
   setSubmissionStatus(id: string, status: ContestWorkStatus, isDisplayed: boolean): Promise<void>;
+  getActivitySettings(): Promise<ActivitySettings>;
+  saveActivitySettings(settings: ActivitySettings): Promise<ActivitySettings>;
 }
 
 export class PublicActivityClient implements ActivityHttpClient, OperationsHttpClient {
@@ -76,6 +79,14 @@ export class PublicActivityClient implements ActivityHttpClient, OperationsHttpC
 
   async setSubmissionStatus(id: string, status: ContestWorkStatus, isDisplayed: boolean): Promise<void> {
     await this.request(`/api/v1/ops/submissions/${id}`, { method: 'PATCH', json: { status, isDisplayed } });
+  }
+
+  getActivitySettings(): Promise<ActivitySettings> {
+    return this.request('/api/v1/ops/activity-settings');
+  }
+
+  saveActivitySettings(settings: ActivitySettings): Promise<ActivitySettings> {
+    return this.request('/api/v1/ops/activity-settings', { method: 'PUT', json: settings });
   }
 
   private async request<T>(path: string, options: { method?: string; json?: unknown; body?: BodyInit; authenticated?: boolean } = {}): Promise<T> {
