@@ -13,7 +13,7 @@ export const trackDefinitions: TrackDefinition[] = [
     acceptedMedia: ['image'],
     minimumMediaCount: 4,
     summary: '用 AI 四格漫画绘出鸣潮角色的万千日常。',
-    requirements: ['至少上传 1 组完整四格（4 张）', '填写角色名称、AI 工具与不少于 30 字剧情概述']
+    requirements: ['至少上传 1 组完整四格（4 张）', '填写角色名称与不少于 30 字剧情概述']
   },
   {
     id: 'brocade-wardrobe',
@@ -22,7 +22,7 @@ export const trackDefinitions: TrackDefinition[] = [
     minimumMediaCount: 3,
     videoSatisfiesMinimum: true,
     summary: '为拉海洛角色换上国风新装，也可以用镜头完成一场走秀。',
-    requirements: ['设计图请上传至少 3 张；走秀视频时长 10–60 秒', '填写角色名称、AI 工具与不少于 30 字创作说明']
+    requirements: ['设计图请上传至少 3 张；走秀视频时长 10–60 秒', '填写角色名称与不少于 30 字创作说明']
   }
 ];
 

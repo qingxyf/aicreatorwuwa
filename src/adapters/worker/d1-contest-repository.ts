@@ -176,7 +176,7 @@ export class D1ContestRepository implements ContestRepository, ActivitySettingsR
         input.authorAvatar ?? '',
         submission.title,
         submission.characterName ?? '',
-        submission.aiTool ?? '',
+        '',
         submission.description ?? '',
         JSON.stringify(submission.mediaIds ?? []),
         submission.status,

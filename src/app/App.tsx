@@ -38,7 +38,6 @@ interface AppProps {
 interface SubmissionFormValues {
   title: string;
   characterName?: string;
-  aiTool?: string;
   description?: string;
 }
 
@@ -287,7 +286,7 @@ export function App({ api }: AppProps) {
       }
       await client.currentViewer();
       const media = await Promise.all(selectedFiles.map((file) => client.uploadMedia(file)));
-      await client.submit({ trackId: submissionTrack.id, title: values.title.trim(), characterName: values.characterName?.trim(), aiTool: values.aiTool?.trim(), description: values.description?.trim(), mediaIds: media.map((item) => item.id) });
+      await client.submit({ trackId: submissionTrack.id, title: values.title.trim(), characterName: values.characterName?.trim(), description: values.description?.trim(), mediaIds: media.map((item) => item.id) });
       setSubmissionNotice('投稿已保存，等待审核');
       setSelectedFiles([]);
       form.resetFields();
@@ -378,9 +377,9 @@ export function App({ api }: AppProps) {
       {messageContext}
       <main className="site-shell">
         <section className="hero" id="rules">
-          <header className="site-header"><a className="brand" href="#rules" aria-label="返回活动首页"><i />鸣潮 · 创作征集</a><nav aria-label="活动导航"><a href="#rules" onClick={(event) => { event.preventDefault(); setRulesOpen(true); }}>活动规则</a>{showSubmission ? <a href="#submit" onClick={(event) => { event.preventDefault(); openSubmission(); }}>我要投稿</a> : null}{showPairing || showFinalVote ? <a href="#vote">参与投票</a> : null}</nav></header>
+          <header className="site-header"><a className="brand" href="#rules" aria-label="返回活动首页"><i />鸣潮 · AI 二创主题征集</a><nav aria-label="活动导航"><a href="#rules" onClick={(event) => { event.preventDefault(); setRulesOpen(true); }}>活动规则</a>{showSubmission ? <a href="#submit" onClick={(event) => { event.preventDefault(); openSubmission(); }}>我要投稿</a> : null}{showPairing || showFinalVote ? <a href="#vote">参与投票</a> : null}</nav></header>
           <div className="hero-ink" />
-          <div className="hero-content"><div className="hero-kicker"><strong>鸣潮小站 × AI 创作小站联合举办</strong><span>Bilibili Toy 小站活动</span></div><h1>雨落拉海洛，<br />共鸣成新章。</h1><p className="hero-date">{!configReady ? '正在加载活动阶段与时间…' : configLoadFailed ? '活动配置暂不可用，请稍后重试' : <>当前开放：{config.phase === 'closed' ? '活动已结束' : stageOrder.find((stage) => stage.phase === config.phase)?.scheduleKey ? config.schedule[stageOrder.find((stage) => stage.phase === config.phase)!.scheduleKey].label : '活动状态待发布'} · {config.previewMode ? '运营预览模式：全阶段展示' : '仅展示当前活动阶段'}</>}</p><div className="hero-actions">{heroAction}<Button onClick={() => setRulesOpen(true)} size="large">查看完整规则 <ArrowRightOutlined /></Button></div></div>
+          <div className="hero-content"><div className="hero-kicker"><strong>鸣潮小站 × AI 创作小站联合举办</strong><span>Bilibili Toy 小站活动</span></div><h1>雨落拉海洛，<br />共鸣成新章。</h1><p className="hero-themes"><strong>共鸣小剧场</strong> · AI 四格漫画创作赛 <i>×</i> <strong>衣锦还裳</strong> · 拉海洛国风换装秀</p><p className="hero-date">{!configReady ? '正在加载活动阶段与时间…' : configLoadFailed ? '活动配置暂不可用，请稍后重试' : <>当前开放：{config.phase === 'closed' ? '活动已结束' : stageOrder.find((stage) => stage.phase === config.phase)?.scheduleKey ? config.schedule[stageOrder.find((stage) => stage.phase === config.phase)!.scheduleKey].label : '活动状态待发布'} · {config.previewMode ? '运营预览模式：全阶段展示' : '仅展示当前活动阶段'}</>}</p><div className="hero-actions">{heroAction}<Button onClick={() => setRulesOpen(true)} size="large">查看完整规则 <ArrowRightOutlined /></Button></div></div>
           <img className="hero-art" src={currentArtUrl()} alt="雨巷中的国风角色插画" />
           <div className="hero-stage" aria-label="活动周期">{stageOrder.map((stage) => { const item = config.schedule[stage.scheduleKey]; const active = config.phase === stage.phase; return <span className={active ? 'active-stage' : ''} key={stage.phase}><b>{stage.number}</b><i><strong>{item.label}</strong><small>{formatSchedule(item.startAt, item.endAt)}</small></i></span>; })}</div>
         </section>
@@ -407,7 +406,6 @@ export function App({ api }: AppProps) {
             <p className="submission-track-status">当前投稿赛道：<strong>{submissionTrack.title}</strong></p>
             <Form.Item label="作品标题" name="title" rules={[{ required: true, message: '请填写作品标题' }]}><Input maxLength={40} placeholder="给作品取一个名字" /></Form.Item>
             <Form.Item label="角色名称" name="characterName"><Input maxLength={40} placeholder="例如：椿、今汐……" /></Form.Item>
-            <Form.Item label="使用的 AI 工具" name="aiTool"><Input maxLength={60} placeholder="例如：绘图、视频或剪辑工具" /></Form.Item>
             <Form.Item label="创作说明" name="description"><Input.TextArea maxLength={500} placeholder="说说你的创作思路" rows={4} showCount /></Form.Item>
             <div className="file-picker"><label htmlFor="media-input">作品文件</label><p className="media-kind-hint">{acceptedMediaText(submissionTrack)}</p><input accept={submissionTrack.acceptedMedia.map((kind) => kind === 'image' ? 'image/*' : 'video/*').join(',')} aria-label="添加作品文件" id="media-input" multiple onChange={(event) => setSelectedFiles(Array.from(event.target.files ?? []))} type="file" /><p>{selectedFiles.length ? `${detectedMediaType(selectedFiles)} · 已选择 ${selectedFiles.length} 个文件：${selectedFiles.map((file) => file.name).join('、')}` : `本赛道：${acceptedMediaText(submissionTrack)}`}</p></div>
             {submissionNotice ? <Alert className="submission-notice" message={submissionNotice} showIcon type={submissionNotice.includes('已保存') ? 'success' : 'warning'} /> : null}

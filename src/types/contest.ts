@@ -24,7 +24,6 @@ export interface SubmissionInput {
   trackId: ContestTrackId;
   title: string;
   characterName?: string;
-  aiTool?: string;
   description?: string;
   mediaIds?: string[];
 }
@@ -137,7 +136,6 @@ export interface ClientSubmissionInput {
   trackId: ContestTrackId;
   title: string;
   characterName?: string;
-  aiTool?: string;
   description?: string;
   mediaIds: string[];
 }

@@ -200,7 +200,6 @@ app.post('/api/v1/submissions', async (context) => {
     trackId: payload.trackId,
     title,
     characterName: normalizedText(payload.characterName, 40),
-    aiTool: normalizedText(payload.aiTool, 60),
     description: normalizedText(payload.description, 500),
     mediaIds: payload.mediaIds ?? []
   };
