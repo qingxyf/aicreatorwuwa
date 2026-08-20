@@ -2,7 +2,9 @@ import { defineConfig } from 'vitest/config';
 import react from '@vitejs/plugin-react';
 
 export default defineConfig({
-  base: process.env.VITE_TOY_BASE_PATH ?? '/',
+  // Toy pages are served from /toy/<slug>/, so local assets must stay relative
+  // to the published package instead of resolving from the site root.
+  base: process.env.VITE_TOY_BASE_PATH ?? './',
   build: {
     rollupOptions: {
       input: {
