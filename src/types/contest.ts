@@ -1,4 +1,4 @@
-export type ContestTrackId = 'resonance-theatre' | 'brocade-wardrobe';
+export type ContestTrackId = 'resonance-style' | 'resonance-story' | 'wardrobe-design' | 'wardrobe-video';
 
 export type ContestPhase = 'submission' | 'pairing' | 'final-vote' | 'closed';
 

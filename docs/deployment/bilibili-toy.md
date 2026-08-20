@@ -51,9 +51,7 @@ PostgreSQL 只映射在 Compose 私网，API 仅绑定本机 8787，公网通过
 
 ## 3. 数据库和白名单
 
-server/migrations/001_init.sql 会在 PostgreSQL 首次启动时自动创建表、索引、唯一约束和默认活动设置。后续迁移需在备份后执行：
-
-    docker compose exec db psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -f /dev/stdin < server/migrations/001_init.sql
+API 容器启动前会运行 `server/migrate.ts`，按文件名顺序执行 `server/migrations/*.sql`，并在 `schema_migrations` 中记录已应用版本。四赛道迁移由 `002_four_tracks.sql` 完成；旧版两赛道测试记录会映射到新的奖项赛道并保留票数。生产执行迁移前仍应先完成数据库备份。
 
 身份核验服务返回的规范化 Viewer.id（Toy 内稳定开放标识，不是 B 站 UID/MID）加入白名单：
 

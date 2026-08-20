@@ -24,7 +24,7 @@ describe('ContestService', () => {
     const repository = createRepository({ countActiveSubmissions: async () => 1 });
     const service = new ContestService(repository);
 
-    await expect(service.createSubmission({ authorId: 'u1', trackId: 'resonance-theatre', title: '雨夜' })).rejects.toThrow('submission_limit');
+    await expect(service.createSubmission({ authorId: 'u1', trackId: 'resonance-style', title: '雨夜' })).rejects.toThrow('submission_limit');
   });
 
   test('does not attach media uploaded by a different account', async () => {
@@ -33,7 +33,7 @@ describe('ContestService', () => {
 
     await expect(service.createSubmission({
       authorId: 'u1',
-      trackId: 'resonance-theatre',
+      trackId: 'resonance-style',
       title: '雨夜',
       mediaIds: ['other-users-file']
     })).rejects.toThrow('media_not_owned');
@@ -47,7 +47,7 @@ describe('ContestService', () => {
 
     await expect(service.createSubmission({
       authorId: 'u1',
-      trackId: 'resonance-theatre',
+      trackId: 'resonance-style',
       title: '四格雨夜',
       mediaIds: ['panel-1', 'panel-2', 'panel-3']
     })).rejects.toThrow('media_requirement_not_met');
@@ -60,7 +60,7 @@ describe('ContestService', () => {
 
     await expect(service.castPairingVote({
       viewerId: 'u1',
-      trackId: 'resonance-theatre',
+      trackId: 'resonance-style',
       assignmentId: 'assignment-1',
       preferredWorkId: 'work-a'
     })).rejects.toThrow('pairing_assignment_invalid');
@@ -73,7 +73,7 @@ describe('ContestService', () => {
     const repository = createRepository({ listDailyFinalVoteWorkIds: async () => ['work-a'], recordFinalVote });
     const service = new ContestService(repository);
 
-    await expect(service.castFinalVote({ viewerId: 'u1', trackId: 'resonance-theatre', workId: 'work-a', day: '2026-08-18' })).rejects.toThrow('duplicate_work');
+    await expect(service.castFinalVote({ viewerId: 'u1', trackId: 'resonance-style', workId: 'work-a', day: '2026-08-18' })).rejects.toThrow('duplicate_work');
   });
 
   test('records a valid second-stage vote and returns the remaining quota', async () => {
@@ -87,7 +87,7 @@ describe('ContestService', () => {
     });
     const service = new ContestService(repository);
 
-    await expect(service.castFinalVote({ viewerId: 'u1', trackId: 'resonance-theatre', workId: 'work-b', day: '2026-08-18' })).resolves.toEqual({ remainingAfter: 1 });
+    await expect(service.castFinalVote({ viewerId: 'u1', trackId: 'resonance-style', workId: 'work-b', day: '2026-08-18' })).resolves.toEqual({ remainingAfter: 1 });
     expect(calls).toHaveLength(1);
   });
 
@@ -100,7 +100,7 @@ describe('ContestService', () => {
 
     await expect(service.castFinalVote({
       viewerId: 'u1',
-      trackId: 'resonance-theatre',
+      trackId: 'resonance-style',
       workId: 'work-b',
       day: '2026-08-18'
     })).rejects.toThrow('final_vote_not_recorded');

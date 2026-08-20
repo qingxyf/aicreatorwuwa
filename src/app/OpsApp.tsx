@@ -34,6 +34,13 @@ function DisplayControl({ item, onChange }: { item: OperatorSubmission; onChange
   return <Switch aria-label={`展示 ${item.title}`} checked={item.isDisplayed} disabled={item.status !== 'finalist'} onChange={onChange} size="small" />;
 }
 
+function WorkMediaPreview({ item }: { item: OperatorSubmission }) {
+  const media = item.media[0];
+  if (!media) return <span className="ops-media-empty">无媒体</span>;
+  if (media.kind === 'video') return <video aria-label={`${item.title}的作品预览`} className="ops-media-preview" controls preload="metadata" src={media.url} />;
+  return <img alt={`${item.title}的作品预览`} className="ops-media-preview" loading="lazy" src={media.url} />;
+}
+
 function stageTimestamp(settings: ActivitySettings, stage: keyof ActivitySettings['schedule'], edge: 'startAt' | 'endAt'): string {
   return settings.schedule[stage][edge] ?? '';
 }
@@ -92,8 +99,9 @@ export function OpsApp({ api }: OpsAppProps) {
   }
 
   const columns: ColumnsType<OperatorSubmission> = [
+    { title: '作品预览', key: 'media', width: 130, render: (_, item) => <WorkMediaPreview item={item} /> },
     { title: '作品 / 作者', key: 'work', render: (_, item) => <div className="ops-author"><Avatar src={item.authorAvatar || undefined}>{item.authorName.slice(0, 1)}</Avatar><span><strong>{item.title}</strong><small>{item.authorName}</small></span></div> },
-    { title: '赛道', dataIndex: 'trackId', width: 150, render: (trackId) => <Tag color="gold">{trackId === 'resonance-theatre' ? '共鸣小剧场' : '衣锦还裳'}</Tag> },
+    { title: '赛道', dataIndex: 'trackId', width: 250, render: (trackId) => <Tag color="gold">{trackId === 'resonance-style' ? '共鸣小剧场｜最佳画风奖' : trackId === 'resonance-story' ? '共鸣小剧场｜最佳剧情奖' : trackId === 'wardrobe-design' ? '衣锦还裳｜最佳服装设计奖' : '衣锦还裳｜最佳走秀视频奖'}</Tag> },
     { title: '盲选胜场', dataIndex: 'pairingWins', width: 110 },
     { title: '盲选曝光', dataIndex: 'exposureCount', width: 110 },
     { title: '投票阶段票数', dataIndex: 'finalVotes', width: 130 },

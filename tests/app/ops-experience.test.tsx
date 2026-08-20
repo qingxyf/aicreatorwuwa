@@ -45,7 +45,7 @@ describe('operations experience', () => {
         authorAvatar: '',
         media: [],
         finalVotes: 15,
-        trackId: 'brocade-wardrobe',
+        trackId: 'wardrobe-design',
         status: 'finalist',
         isDisplayed: false,
         pairingWins: 8,
@@ -63,6 +63,36 @@ describe('operations experience', () => {
     await user.click(await screen.findByRole('switch', { name: '展示 雨夜新装' }));
 
     expect(setSubmissionStatus).toHaveBeenCalledWith('work-1', 'finalist', true);
+  });
+
+  test('shows the submitted media to the operator before it is approved', async () => {
+    const api: OperationsApi = {
+      currentViewer: async () => ({ id: 'operator', name: '运营', avatarUrl: '' }),
+      listSubmissions: async () => [{
+        id: 'pending-work',
+        title: '待审作品',
+        authorName: '投稿者',
+        authorAvatar: '',
+        media: [{ id: 'media-1', url: 'https://media.test/pending.png', kind: 'image', mimeType: 'image/png' }],
+        finalVotes: 0,
+        trackId: 'resonance-style',
+        status: 'pending',
+        isDisplayed: false,
+        pairingWins: 0,
+        exposureCount: 0,
+        createdAt: '2026-08-20T00:00:00.000Z'
+      }],
+      setSubmissionStatus: async () => undefined,
+      getActivitySettings: async () => activitySettings,
+      saveActivitySettings: async () => activitySettings
+    };
+    const user = userEvent.setup();
+
+    render(<OpsApp api={api} />);
+    await user.click(screen.getByRole('button', { name: '验证身份并进入' }));
+
+    expect(await screen.findByAltText('待审作品的作品预览')).toBeVisible();
+    expect(screen.getAllByText('待审核').length).toBeGreaterThan(0);
   });
 
   test('lets an operator save the public phase, preview mode and schedule', async () => {

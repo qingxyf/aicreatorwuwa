@@ -37,12 +37,16 @@ export function createDemoPreviewData(baseUrl: string): DemoPreviewData {
 
   return {
     pairingByTrack: {
-      'resonance-theatre': { assignmentId: 'demo-pair-resonance', works: [pairMedia(rain), pairMedia(grey)] },
-      'brocade-wardrobe': { assignmentId: 'demo-pair-brocade', works: [pairMedia(silk), pairMedia(rain)] }
+      'resonance-style': { assignmentId: 'demo-pair-resonance-style', works: [pairMedia(rain), pairMedia(grey)] },
+      'resonance-story': { assignmentId: 'demo-pair-resonance-story', works: [pairMedia(grey), pairMedia(silk)] },
+      'wardrobe-design': { assignmentId: 'demo-pair-wardrobe-design', works: [pairMedia(silk), pairMedia(rain)] },
+      'wardrobe-video': { assignmentId: 'demo-pair-wardrobe-video', works: [pairMedia(rain), pairMedia(silk)] }
     },
     galleryByTrack: {
-      'resonance-theatre': [rain, grey, silk],
-      'brocade-wardrobe': [silk, rain, grey]
+      'resonance-style': [rain, grey, silk],
+      'resonance-story': [grey, silk, rain],
+      'wardrobe-design': [silk, rain, grey],
+      'wardrobe-video': [rain, silk, grey]
     }
   };
 }

@@ -1,6 +1,6 @@
 CREATE TABLE IF NOT EXISTS submissions (
   id TEXT PRIMARY KEY,
-  track_id TEXT NOT NULL CHECK (track_id IN ('resonance-theatre', 'brocade-wardrobe')),
+  track_id TEXT NOT NULL CHECK (track_id IN ('resonance-style', 'resonance-story', 'wardrobe-design', 'wardrobe-video')),
   author_id TEXT NOT NULL,
   author_name TEXT NOT NULL,
   author_avatar TEXT NOT NULL,
@@ -28,7 +28,7 @@ CREATE INDEX IF NOT EXISTS media_objects_owner_idx ON media_objects(owner_id);
 CREATE TABLE IF NOT EXISTS pairing_assignments (
   id TEXT PRIMARY KEY,
   viewer_id TEXT NOT NULL,
-  track_id TEXT NOT NULL CHECK (track_id IN ('resonance-theatre', 'brocade-wardrobe')),
+  track_id TEXT NOT NULL CHECK (track_id IN ('resonance-style', 'resonance-story', 'wardrobe-design', 'wardrobe-video')),
   work_a_id TEXT NOT NULL REFERENCES submissions(id),
   work_b_id TEXT NOT NULL REFERENCES submissions(id),
   issued_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -52,7 +52,7 @@ CREATE INDEX IF NOT EXISTS pairing_votes_viewer_track_idx ON pairing_votes(viewe
 CREATE TABLE IF NOT EXISTS final_votes (
   id TEXT PRIMARY KEY,
   viewer_id TEXT NOT NULL,
-  track_id TEXT NOT NULL CHECK (track_id IN ('resonance-theatre', 'brocade-wardrobe')),
+  track_id TEXT NOT NULL CHECK (track_id IN ('resonance-style', 'resonance-story', 'wardrobe-design', 'wardrobe-video')),
   work_id TEXT NOT NULL REFERENCES submissions(id),
   vote_day DATE NOT NULL,
   voted_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),

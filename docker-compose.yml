@@ -23,6 +23,7 @@ services:
         required: false
     environment:
       DATABASE_URL: postgres://${POSTGRES_USER:-wuwa}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-wuwa}
+    command: ["sh", "-c", "node --import tsx server/migrate.ts && node --import tsx server/index.ts"]
     depends_on:
       db:
         condition: service_healthy

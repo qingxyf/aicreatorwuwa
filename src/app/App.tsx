@@ -27,6 +27,7 @@ import { defaultActivitySettings, trackDefinitions } from '../config/activity';
 import { createDemoPreviewData, demoPreviewConfig } from '../config/demo-preview';
 import { canUseDemoPreview } from '../config/static-preview';
 import { isPublicPhaseVisible } from '../domain/activity-phase';
+import { isVideoDurationAllowed } from '../domain/submission-media';
 import type { ContestPhase, ContestTrackId, PublicContestConfig, PublicGalleryWork, PublicPairingWork, PublicTrack } from '../types/contest';
 import { useScrollReveal } from './use-scroll-reveal';
 import './styles.css';
@@ -76,12 +77,13 @@ function formatSchedule(startAt?: string, endAt?: string): string {
 }
 
 function mediaRequirementMessage(track: PublicTrack, files: File[]): string | null {
-  const hasValidVideo = track.videoSatisfiesMinimum && files.some((file) => file.type.startsWith('video/'));
+  const hasVideo = files.some((file) => file.type.startsWith('video/'));
   const imageCount = files.filter((file) => file.type.startsWith('image/')).length;
-  if (hasValidVideo || imageCount >= track.minimumMediaCount) return null;
-  return track.videoSatisfiesMinimum
-    ? `本赛道需要至少 ${track.minimumMediaCount} 张图片，或 1 个视频`
-    : `本赛道需要至少 ${track.minimumMediaCount} 张图片`;
+  if (track.acceptedMedia.length === 1 && track.acceptedMedia[0] === 'video') {
+    return hasVideo && files.length === 1 ? null : '本赛道需要上传 1 个视频（10–60 秒）';
+  }
+  if (files.every((file) => file.type.startsWith('image/')) && imageCount >= track.minimumMediaCount) return null;
+  return `本赛道需要至少 ${track.minimumMediaCount} 张图片`;
 }
 
 function detectedMediaType(files: File[]): string {
@@ -91,8 +93,8 @@ function detectedMediaType(files: File[]): string {
 }
 
 function acceptedMediaText(track: PublicTrack): string {
-  if (track.acceptedMedia.length === 1) return '仅支持图片：JPG、PNG、WebP（单张不超过 20MB）';
-  return '支持图片 JPG、PNG、WebP（单张不超过 20MB）或视频 MP4、WebM（单个不超过 100MB）';
+  if (track.acceptedMedia[0] === 'video') return '仅支持视频：MP4、WebM（10–60 秒，单个不超过 100MB）';
+  return `仅支持图片：JPG、PNG、WebP（至少 ${track.minimumMediaCount} 张，单张不超过 20MB）`;
 }
 
 function MediaArtwork({ media, title, compact = false }: { media: PublicGalleryWork['media']; title: string; compact?: boolean }) {
@@ -124,6 +126,19 @@ function RulePanel({ track }: { track: PublicTrack }) {
   );
 }
 
+async function validateVideoDuration(file: File): Promise<boolean> {
+  if (!file.type.startsWith('video/')) return true;
+  return new Promise((resolve) => {
+    const video = document.createElement('video');
+    const objectUrl = URL.createObjectURL(file);
+    const cleanup = () => URL.revokeObjectURL(objectUrl);
+    video.preload = 'metadata';
+    video.onloadedmetadata = () => { const allowed = isVideoDurationAllowed(video.duration); cleanup(); resolve(allowed); };
+    video.onerror = () => { cleanup(); resolve(false); };
+    video.src = objectUrl;
+  });
+}
+
 function CharacterDuo() {
   return (
     <div aria-hidden="true" className="character-duo">
@@ -151,9 +166,9 @@ function GalleryCard({ work, voted, onVote, motionDelay }: { work: PublicGallery
 function CompleteRules({ config }: { config: PublicContestConfig }) {
   return (
     <div className="complete-rules">
-      <section><h3>活动与赛道</h3><p>活动包含「鸣潮·共鸣小剧场」与「鸣潮·衣锦还裳」两个赛道。每个账号每个赛道最多提交 1 件作品，两个赛道可同时参与。</p></section>
+      <section><h3>活动与赛道</h3><p>活动包含四个独立赛道：「共鸣小剧场」分为最佳画风奖、最佳剧情奖；「衣锦还裳」分为最佳服装设计奖、最佳走秀视频奖。每个账号每个赛道最多提交 1 件作品，四个赛道可同时参与。</p></section>
       <section><h3>三阶段与时间</h3><ul>{stageOrder.map((stage) => <li key={stage.phase}><strong>{config.schedule[stage.scheduleKey].label}</strong><span>{formatSchedule(config.schedule[stage.scheduleKey].startAt, config.schedule[stage.scheduleKey].endAt)}</span></li>)}</ul><p>以活动页公示的阶段与北京时间为准；未设置日期时，请等待运营发布。</p></section>
-      <section><h3>投稿与内容规范</h3><p>作品须为原创 AI 二创内容，符合 B 站社区规范，不得盗用、搬运、发布 NSFW 或其他违规内容。允许适度调色、排版、剪辑及配乐，但参赛者须确保自己拥有投稿、展示所需的权利。</p><p>小剧场需提交至少 4 张图片；衣锦还裳需提交至少 3 张图片或 1 个视频。系统会校验文件类型、大小与实际文件签名。</p></section>
+      <section><h3>投稿与内容规范</h3><p>作品须为原创 AI 二创内容，符合 B 站社区规范，不得盗用、搬运、发布 NSFW 或其他违规内容。允许适度调色、排版、剪辑及配乐，但参赛者须确保自己拥有投稿、展示所需的权利。</p><p>四个赛道分别按页面所列图片数量或视频时长要求投稿。投稿后先进入待审核状态，只有运营审核通过的作品才会进入盲选池或公开展示。系统会校验文件类型、大小与实际文件签名。</p></section>
       <section><h3>投票规则</h3><p>盲选阶段，每个账号每赛道 3 票，每次从两件作品中选 1 件，系统以作品曝光均衡为目标派发对比。投票阶段，入围作品会展示作者昵称、头像和票数；每个账号每赛道每天 3 票，同一作品当天不得重复投票。</p></section>
       <section><h3>禁止刷票与破坏服务</h3><p>禁止使用脚本、外挂、批量账号、自动化请求、漏洞利用、伪造身份、篡改请求或其他非正当方式影响投稿、曝光或票数。禁止扫描、攻击、干扰、压测、破坏服务器、存储、数据库及其他活动服务。违反者将被取消资格、撤销票数或作品展示；情节严重的，主办方将保留追究责任的权利。</p></section>
       <section><h3>责任与处理说明</h3><p>参赛即表示同意主办方在活动展示、评审与公示范围内展示作品、昵称和头像。主办方可对违规、疑似侵权、异常投票或技术风险作品进行审核、隐藏、取消资格或调整展示；在法律允许范围内，活动解释、风控与处理决定以主办方最终公示为准。</p></section>
@@ -188,8 +203,8 @@ export function App({ api }: AppProps) {
   const { rootRef, motionReady } = useScrollReveal(configReady);
   const [configLoadFailed, setConfigLoadFailed] = useState(false);
   const [localPreview, setLocalPreview] = useState(false);
-  const [activeTrackId, setActiveTrackId] = useState<ContestTrackId>('resonance-theatre');
-  const [submissionTrackId, setSubmissionTrackId] = useState<ContestTrackId>('resonance-theatre');
+  const [activeTrackId, setActiveTrackId] = useState<ContestTrackId>('resonance-style');
+  const [submissionTrackId, setSubmissionTrackId] = useState<ContestTrackId>('resonance-style');
   const [gallery, setGallery] = useState<PublicGalleryWork[]>([]);
   const [pair, setPair] = useState<PublicPairingWork[]>([]);
   const [pairingAssignmentId, setPairingAssignmentId] = useState<string>();
@@ -219,8 +234,8 @@ export function App({ api }: AppProps) {
       setConfig(nextConfig);
       setLocalPreview(false);
       setConfigReady(true);
-      setActiveTrackId((current) => nextConfig.tracks.some((track) => track.id === current) ? current : nextConfig.tracks[0]?.id ?? 'resonance-theatre');
-      setSubmissionTrackId((current) => nextConfig.tracks.some((track) => track.id === current) ? current : nextConfig.tracks[0]?.id ?? 'resonance-theatre');
+      setActiveTrackId((current) => nextConfig.tracks.some((track) => track.id === current) ? current : nextConfig.tracks[0]?.id ?? 'resonance-style');
+      setSubmissionTrackId((current) => nextConfig.tracks.some((track) => track.id === current) ? current : nextConfig.tracks[0]?.id ?? 'resonance-style');
     }).catch(() => {
       if (!live) return;
       if (canUseDemoPreview(import.meta.env)) {
@@ -281,6 +296,10 @@ export function App({ api }: AppProps) {
     setIsSubmitting(true);
     setSubmissionNotice('');
     try {
+      if (submissionTrack.id === 'wardrobe-video' && !(await validateVideoDuration(selectedFiles[0]))) {
+        setSubmissionNotice('走秀视频时长必须在 10–60 秒之间，且文件需要可读取时长');
+        return;
+      }
       if (localPreview) {
         setSubmissionNotice('投稿预览已保存（本地演示）');
         setSelectedFiles([]);
@@ -290,7 +309,7 @@ export function App({ api }: AppProps) {
       await client.currentViewer();
       const media = await Promise.all(selectedFiles.map((file) => client.uploadMedia(file)));
       await client.submit({ trackId: submissionTrack.id, title: values.title.trim(), characterName: values.characterName?.trim(), description: values.description?.trim(), mediaIds: media.map((item) => item.id) });
-      setSubmissionNotice('投稿已保存，等待审核');
+      setSubmissionNotice('投稿已提交，审核通过后才会进入盲选和展示');
       setSelectedFiles([]);
       form.resetFields();
     } catch (error) {
@@ -412,7 +431,7 @@ export function App({ api }: AppProps) {
             <Form.Item label="角色名称" name="characterName"><Input maxLength={40} placeholder="例如：椿、今汐……" /></Form.Item>
             <Form.Item label="创作说明" name="description"><Input.TextArea maxLength={500} placeholder="说说你的创作思路" rows={4} showCount /></Form.Item>
             <div className="file-picker"><label htmlFor="media-input">作品文件</label><p className="media-kind-hint">{acceptedMediaText(submissionTrack)}</p><input accept={submissionTrack.acceptedMedia.map((kind) => kind === 'image' ? 'image/*' : 'video/*').join(',')} aria-label="添加作品文件" id="media-input" multiple onChange={(event) => setSelectedFiles(Array.from(event.target.files ?? []))} type="file" /><p>{selectedFiles.length ? `${detectedMediaType(selectedFiles)} · 已选择 ${selectedFiles.length} 个文件：${selectedFiles.map((file) => file.name).join('、')}` : `本赛道：${acceptedMediaText(submissionTrack)}`}</p></div>
-            {submissionNotice ? <Alert className="submission-notice" message={submissionNotice} showIcon type={submissionNotice.includes('已保存') ? 'success' : 'warning'} /> : null}
+            {submissionNotice ? <Alert className="submission-notice" message={submissionNotice} showIcon type={submissionNotice.includes('已提交') || submissionNotice.includes('已保存') ? 'success' : 'warning'} /> : null}
             <Button aria-label="提交作品" block htmlType="submit" icon={<CloudUploadOutlined />} loading={isSubmitting} size="large" type="primary">提交作品</Button>
           </Form>
         </Drawer>

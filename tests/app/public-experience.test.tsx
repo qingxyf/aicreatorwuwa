@@ -18,21 +18,36 @@ function createApi(configOverrides: Partial<Awaited<ReturnType<PublicActivityApi
       ...configOverrides,
       tracks: configOverrides.tracks ?? [
         {
-          id: 'resonance-theatre',
-          title: '鸣潮·共鸣小剧场',
+          id: 'resonance-style',
+          title: '鸣潮·共鸣小剧场｜最佳画风奖',
           acceptedMedia: ['image'],
           minimumMediaCount: 4,
           summary: '用 AI 四格漫画绘出鸣潮角色的万千日常。',
           requirements: ['至少上传 1 组完整四格（4 张）']
         },
         {
-          id: 'brocade-wardrobe',
-          title: '鸣潮·衣锦还裳',
-          acceptedMedia: ['image', 'video'],
+          id: 'resonance-story',
+          title: '鸣潮·共鸣小剧场｜最佳剧情奖',
+          acceptedMedia: ['image'],
+          minimumMediaCount: 8,
+          summary: '用 AI 四格漫画讲出完整故事。',
+          requirements: ['至少上传 2 组完整四格（8 张）']
+        },
+        {
+          id: 'wardrobe-design',
+          title: '鸣潮·衣锦还裳｜最佳服装设计奖',
+          acceptedMedia: ['image'],
           minimumMediaCount: 3,
-          videoSatisfiesMinimum: true,
-          summary: '为拉海洛角色换上国风新装。',
-          requirements: ['图文或视频作品均可投稿']
+          summary: '为拉海洛角色设计国风服装。',
+          requirements: ['至少上传 3 张设计图']
+        },
+        {
+          id: 'wardrobe-video',
+          title: '鸣潮·衣锦还裳｜最佳走秀视频奖',
+          acceptedMedia: ['video'],
+          minimumMediaCount: 1,
+          summary: '用 AI 视频完成国风走秀展示。',
+          requirements: ['上传 1 个 10–60 秒视频']
         }
       ]
     }),
@@ -90,10 +105,10 @@ describe('public activity experience', () => {
     render(<App api={createApi({ phase: 'submission' })} />);
 
     await user.click(await screen.findByRole('link', { name: '我要投稿' }));
-    await user.click(screen.getByRole('radio', { name: '鸣潮·衣锦还裳' }));
+    await user.click(screen.getByRole('radio', { name: '鸣潮·衣锦还裳｜最佳服装设计奖' }));
     await user.upload(screen.getByLabelText('添加作品文件'), new File(['image'], 'look.png', { type: 'image/png' }));
 
-    expect(screen.getByText('当前投稿赛道：').parentElement).toHaveTextContent('当前投稿赛道：鸣潮·衣锦还裳');
+    expect(screen.getByText('当前投稿赛道：').parentElement).toHaveTextContent('当前投稿赛道：鸣潮·衣锦还裳｜最佳服装设计奖');
     expect(screen.getByText(/已识别为图片/)).toBeVisible();
   });
 
@@ -164,7 +179,7 @@ describe('public activity experience', () => {
     ]);
     await user.click(screen.getByRole('button', { name: '提交作品' }));
 
-    await waitFor(() => expect(screen.getByText('投稿已保存，等待审核')).toBeVisible());
+    await waitFor(() => expect(screen.getByText('投稿已提交，审核通过后才会进入盲选和展示')).toBeVisible());
     expect(screen.queryByText('设置入围')).not.toBeInTheDocument();
   });
 
