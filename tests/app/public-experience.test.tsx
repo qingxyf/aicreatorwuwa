@@ -1,6 +1,6 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { describe, expect, test } from 'vitest';
+import { describe, expect, test, vi } from 'vitest';
 import { App, type PublicActivityApi } from '../../src/app/App';
 
 const viewer = { id: 'toy-open-id', name: '漂泊者', avatarUrl: 'https://avatar.test/wanderer.png' };
@@ -82,7 +82,7 @@ describe('public activity experience', () => {
     render(<App api={createApi()} />);
     expect(screen.getByRole('link', { name: '活动规则' })).toBeVisible();
     expect(await screen.findByRole('link', { name: '参与投票' })).toBeVisible();
-    expect(screen.queryByRole('link', { name: '我要投稿' })).not.toBeInTheDocument();
+    await waitFor(() => expect(screen.queryByRole('link', { name: '我要投稿' })).not.toBeInTheDocument());
     expect(screen.queryByText('让作品公平地相遇')).not.toBeInTheDocument();
     expect(screen.getByText('为喜欢的作品投票')).toBeVisible();
     expect(screen.queryByText('运营后台')).not.toBeInTheDocument();
@@ -127,6 +127,41 @@ describe('public activity experience', () => {
     expect(screen.getAllByText('投稿阶段').length).toBeGreaterThan(0);
     expect(screen.getAllByText('盲选阶段').length).toBeGreaterThan(0);
     expect(screen.getAllByText('投票阶段').length).toBeGreaterThan(0);
+  });
+
+  test('keeps all public entry points available while activity config is pending', async () => {
+    const api = createApi({ phase: 'submission' });
+    api.loadConfig = () => new Promise(() => undefined);
+
+    render(<App api={api} />);
+
+    expect(screen.getByRole('link', { name: '我要投稿' })).toBeVisible();
+    expect(screen.getByRole('link', { name: '参与投票' })).toBeVisible();
+    expect(screen.getByText('让作品公平地相遇')).toBeVisible();
+    expect(screen.getByText('为喜欢的作品投票')).toBeVisible();
+  });
+
+  test('uses the real submission API while activity config is pending', async () => {
+    const user = userEvent.setup();
+    const api = createApi({ phase: 'submission' });
+    const submit = vi.fn(api.submit);
+    api.submit = submit;
+    api.loadConfig = () => new Promise(() => undefined);
+
+    render(<App api={api} />);
+
+    await user.click(screen.getByRole('link', { name: '我要投稿' }));
+    await user.type(screen.getByLabelText('作品标题'), '配置未返回时的投稿');
+    await user.upload(screen.getByLabelText('添加作品文件'), [
+      new File(['image'], 'pending-1.png', { type: 'image/png' }),
+      new File(['image'], 'pending-2.png', { type: 'image/png' }),
+      new File(['image'], 'pending-3.png', { type: 'image/png' }),
+      new File(['image'], 'pending-4.png', { type: 'image/png' })
+    ]);
+    await user.click(screen.getByRole('button', { name: '提交作品' }));
+
+    await waitFor(() => expect(screen.getByText('投稿已提交，审核通过后才会进入盲选和展示')).toBeVisible());
+    expect(submit).toHaveBeenCalled();
   });
 
   test('restores the complete single-page preview when the local backend is unavailable', async () => {

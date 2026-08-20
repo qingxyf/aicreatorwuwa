@@ -46,6 +46,9 @@ interface SubmissionFormValues {
 
 const fallbackConfig: PublicContestConfig = {
   ...defaultActivitySettings,
+  // Keep the public test entry points usable while Toy syncs the live settings.
+  // This is configuration only; submissions and votes still use the real API.
+  previewMode: true,
   schedule: {
     submission: { ...defaultActivitySettings.schedule.submission },
     pairing: { ...defaultActivitySettings.schedule.pairing },
@@ -61,6 +64,17 @@ const stageOrder: Array<{ phase: Exclude<ContestPhase, 'closed'>; scheduleKey: '
 ];
 
 const localDemoData = createDemoPreviewData(import.meta.env.BASE_URL);
+const CONFIG_LOAD_TIMEOUT_MS = 8_000;
+
+function withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const timer = window.setTimeout(() => reject(new Error('activity_config_timeout')), timeoutMs);
+    promise.then(
+      (value) => { window.clearTimeout(timer); resolve(value); },
+      (error) => { window.clearTimeout(timer); reject(error); }
+    );
+  });
+}
 
 function currentArtUrl() {
   return `${import.meta.env.BASE_URL}assets/rainy-wuwa-hero.png`;
@@ -199,9 +213,12 @@ export function App({ api }: AppProps) {
   const [, messageContext] = message.useMessage();
   const [form] = Form.useForm<SubmissionFormValues>();
   const [config, setConfig] = useState<PublicContestConfig>(fallbackConfig);
-  const [configReady, setConfigReady] = useState(false);
+  // The bundled fallback is intentionally ready immediately. A Toy page must
+  // not hide its submission controls just because the settings request stalls.
+  const [configReady, setConfigReady] = useState(true);
   const { rootRef, motionReady } = useScrollReveal(configReady);
   const [configLoadFailed, setConfigLoadFailed] = useState(false);
+  const [configPending, setConfigPending] = useState(true);
   const [localPreview, setLocalPreview] = useState(false);
   const [activeTrackId, setActiveTrackId] = useState<ContestTrackId>('resonance-style');
   const [submissionTrackId, setSubmissionTrackId] = useState<ContestTrackId>('resonance-style');
@@ -222,18 +239,20 @@ export function App({ api }: AppProps) {
 
   const activeTrack = config.tracks.find((track) => track.id === activeTrackId) ?? config.tracks[0];
   const submissionTrack = config.tracks.find((track) => track.id === submissionTrackId) ?? activeTrack;
-  const isPublicInteractionReady = configReady && !configLoadFailed;
+  const isPublicInteractionReady = configReady;
   const showSubmission = isPublicInteractionReady && isPublicPhaseVisible(config.phase, config.previewMode, 'submission');
   const showPairing = isPublicInteractionReady && isPublicPhaseVisible(config.phase, config.previewMode, 'pairing');
   const showFinalVote = isPublicInteractionReady && isPublicPhaseVisible(config.phase, config.previewMode, 'final-vote');
 
   useEffect(() => {
     let live = true;
-    client.loadConfig().then((nextConfig) => {
+    withTimeout(client.loadConfig(), CONFIG_LOAD_TIMEOUT_MS).then((nextConfig) => {
       if (!live) return;
       setConfig(nextConfig);
       setLocalPreview(false);
       setConfigReady(true);
+      setConfigPending(false);
+      setConfigLoadFailed(false);
       setActiveTrackId((current) => nextConfig.tracks.some((track) => track.id === current) ? current : nextConfig.tracks[0]?.id ?? 'resonance-style');
       setSubmissionTrackId((current) => nextConfig.tracks.some((track) => track.id === current) ? current : nextConfig.tracks[0]?.id ?? 'resonance-style');
     }).catch(() => {
@@ -242,9 +261,11 @@ export function App({ api }: AppProps) {
         setConfig(demoPreviewConfig);
         setLocalPreview(true);
         setConfigReady(true);
+        setConfigPending(false);
         setConfigLoadFailed(false);
         return;
       }
+      setConfigPending(false);
       setConfigLoadFailed(true);
     });
     return () => { live = false; };
@@ -401,7 +422,7 @@ export function App({ api }: AppProps) {
         <section className="hero" id="rules">
           <header className="site-header"><a className="brand" href="#rules" aria-label="返回活动首页"><i />鸣潮 · AI 二创主题征集</a><nav aria-label="活动导航"><a href="#rules" onClick={(event) => { event.preventDefault(); setRulesOpen(true); }}>活动规则</a>{showSubmission ? <a href="#submit" onClick={(event) => { event.preventDefault(); openSubmission(); }}>我要投稿</a> : null}{showPairing || showFinalVote ? <a href="#vote">参与投票</a> : null}</nav></header>
           <div className="hero-ink" />
-          <div className="hero-content"><div className="hero-kicker"><strong>鸣潮小站 × AI 创作小站联合举办</strong><span>Bilibili Toy 小站活动</span></div><h1>雨落拉海洛，<br />共鸣成新章。</h1><p className="hero-themes"><strong>共鸣小剧场</strong> · AI 四格漫画创作赛 <i>×</i> <strong>衣锦还裳</strong> · 拉海洛国风换装秀</p><p className="hero-date">{!configReady ? '正在加载活动阶段与时间…' : configLoadFailed ? '活动配置暂不可用，请稍后重试' : <>当前开放：{config.phase === 'closed' ? '活动已结束' : stageOrder.find((stage) => stage.phase === config.phase)?.scheduleKey ? config.schedule[stageOrder.find((stage) => stage.phase === config.phase)!.scheduleKey].label : '活动状态待发布'} · {config.previewMode ? '运营预览模式：全阶段展示' : '仅展示当前活动阶段'}</>}</p><div className="hero-actions">{heroAction}<Button onClick={() => setRulesOpen(true)} size="large">查看完整规则 <ArrowRightOutlined /></Button></div></div>
+          <div className="hero-content"><div className="hero-kicker"><strong>鸣潮小站 × AI 创作小站联合举办</strong><span>Bilibili Toy 小站活动</span></div><h1>雨落拉海洛，<br />共鸣成新章。</h1><p className="hero-themes"><strong>共鸣小剧场</strong> · AI 四格漫画创作赛 <i>×</i> <strong>衣锦还裳</strong> · 拉海洛国风换装秀</p><p className="hero-date">{configLoadFailed ? '活动配置暂不可用，当前保留测试入口；投稿仍会提交到后台' : configPending ? '正在同步活动阶段；投稿与投票入口已开启' : <>当前开放：{config.phase === 'closed' ? '活动已结束' : stageOrder.find((stage) => stage.phase === config.phase)?.scheduleKey ? config.schedule[stageOrder.find((stage) => stage.phase === config.phase)!.scheduleKey].label : '活动状态待发布'} · {config.previewMode ? '运营预览模式：全阶段展示' : '仅展示当前活动阶段'}</>}</p><div className="hero-actions">{heroAction}<Button onClick={() => setRulesOpen(true)} size="large">查看完整规则 <ArrowRightOutlined /></Button></div></div>
           <img className="hero-art" src={currentArtUrl()} alt="雨巷中的国风角色插画" />
           <div aria-hidden="true" className="hero-bottom-fade" />
           <div aria-label="活动周期" className="hero-stage" data-motion-reveal="">{stageOrder.map((stage) => { const item = config.schedule[stage.scheduleKey]; const active = config.phase === stage.phase; return <span className={active ? 'active-stage' : ''} key={stage.phase}><b>{stage.number}</b><i><strong>{item.label}</strong><small>{formatSchedule(item.startAt, item.endAt)}</small></i></span>; })}</div>
