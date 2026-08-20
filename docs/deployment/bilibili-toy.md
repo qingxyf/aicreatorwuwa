@@ -30,13 +30,13 @@
     OSS_BUCKET=aixiaozhanandmingchaoxiaozhan
     OSS_ACCESS_KEY_ID=ram-user-key
     OSS_ACCESS_KEY_SECRET=ram-user-secret
-    PUBLIC_APP_ORIGIN=https://www.bilibili.com
+    PUBLIC_APP_ORIGIN=https://www.bilibilitoy.com
     MEDIA_PUBLIC_BASE_URL=https://api.example.com
     IDENTITY_VERIFY_URL=https://identity-bridge.example/verify
     IDENTITY_VERIFY_SECRET=server-only-secret
     ALLOW_TOY_PROFILE_IDENTITY=false
 
-PUBLIC_APP_ORIGIN 必须改成 Toy 页面真实 Origin，不能使用通配符。如果 Toy 页面由 GitHub Pages 预览，还需将对应 Origin 加入 OSS CORS，但生产 API 仍只允许正式页面 Origin。
+PUBLIC_APP_ORIGIN 必须填写 Toy 内嵌页面的真实 Origin：`https://www.bilibilitoy.com`，不能填写外层分享地址 `https://www.bilibili.com`，也不能使用通配符。如果 Toy 页面由 GitHub Pages 预览，还需将对应 Origin 加入 OSS CORS，但生产 API 仍只允许正式 Toy Origin。
 
 如果暂时没有身份断言桥接服务，可将服务端 `ALLOW_TOY_PROFILE_IDENTITY=true`、前端构建变量 `VITE_TRUST_TOY_PROFILE=true`。这会把 Toy SDK 返回的稳定开放标识、昵称和头像作为弱身份使用，能支持当前活动但不能抵御伪造请求；正式活动建议改回 `false` 并接入签名断言验证器。
 
@@ -62,10 +62,10 @@ API 容器启动前会运行 `server/migrate.ts`，按文件名顺序执行 `ser
 ## 4. 本地构建和 GitHub Pages 预览
 
     npm ci
-    $env:VITE_API_BASE_URL = "https://api.example.com"
-    # Toy 包内资源必须使用相对路径；自定义访问路径由 Toy 平台的 slug 控制
-    $env:VITE_TOY_BASE_PATH = "./"
+    npm run build:toy
     npm run check:precompletion
+
+`npm run build:toy` 使用仓库内仅包含公开前端配置的 `.env.toy`，固定注入生产 API 地址和相对资源基路径。生产构建若未设置 `VITE_API_BASE_URL` 会直接失败；只有显式设置 `VITE_STATIC_PREVIEW=true` 时才允许生成 GitHub Pages 静态演示包，避免误把无后端的初始回退页面发布到 Toy。
 
 Toy 包内使用 `./` 作为 Vite base，避免 `/toy/<slug>/` 子路径下的资源 404；`dist/` 总包不能超过 140MB；用户运行时上传的图片/视频在 OSS，不计入 Toy 静态包。GitHub Pages 仅用于静态演示，不承载生产投稿和投票数据。
 

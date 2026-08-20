@@ -28,6 +28,8 @@
 - `docker-compose.yml`：ECS 上的 API + PostgreSQL 编排；数据库只在 Compose 私网可见。
 - 层级保持为 `types → config → policy → domain → services → adapters → entrypoints → app`，并由架构检查验证。
 
+生产 API 的 CORS 来源必须配置为 Toy 内嵌页面 Origin `https://www.bilibilitoy.com`；外层分享地址 `https://www.bilibili.com` 不是实际请求来源。
+
 ## 本地开发与检查
 
 ### GitHub Pages 预览
@@ -39,6 +41,8 @@ npm ci
 Copy-Item .env.example .env.local
 npm run dev
 ```
+
+发布 Toy 前使用 `npm run build:toy`，它会自动注入正式 API 地址并校验 Toy 子路径资源；不要用未配置 API 的普通生产构建直接上传。
 
 本地开发时可将 Node API 的 `MODE` 设为 `development`，并使用测试专用 `X-Dev-Viewer` 请求头；生产环境只接受身份核验桥接服务验证过的断言。
 

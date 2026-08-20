@@ -10,6 +10,7 @@
     "test": "vitest run",
     "dev:api": "tsx watch server/index.ts",
     "start:api": "tsx server/index.ts",
+    "build:toy": "tsc -b && vite build --mode toy",
     "db:migrate": "tsx server/migrate.ts",
     "check:architecture": "node scripts/harness/check-architecture.mjs",
     "check:bundle-size": "node scripts/harness/check-bundle-size.mjs",
