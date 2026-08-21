@@ -64,8 +64,10 @@ API 容器启动前会运行 `server/migrate.ts`，按文件名顺序执行 `ser
 ## 4. 本地构建和 GitHub Pages 预览
 
     npm ci
-    npm run build:toy
     npm run check:precompletion
+    npm run build:toy
+
+`check:precompletion` 会运行普通生产构建并覆盖 `dist/`。因此 `npm run build:toy` 必须作为上传前最后一个构建步骤，否则上传到 Toy 的包不会包含 Toy 专用身份配置。
 
 `npm run build:toy` 使用仓库内仅包含公开前端配置的 `.env.toy`，固定注入生产 API 地址和相对资源基路径。生产构建若未设置 `VITE_API_BASE_URL` 会直接失败；只有显式设置 `VITE_STATIC_PREVIEW=true` 时才允许生成 GitHub Pages 静态演示包，避免误把无后端的初始回退页面发布到 Toy。
 

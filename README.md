@@ -42,7 +42,7 @@ Copy-Item .env.example .env.local
 npm run dev
 ```
 
-发布 Toy 前使用 `npm run build:toy`，它会自动注入正式 API 地址并校验 Toy 子路径资源；不要用未配置 API 的普通生产构建直接上传。
+发布 Toy 前先运行 `npm run check:precompletion`，再运行 `npm run build:toy`；Toy 构建必须是上传前最后一个构建步骤。`check:precompletion` 会覆盖 `dist/` 为普通生产包，最后重新运行 `build:toy` 才会注入 Toy 身份配置和子路径资源设置。不要把普通生产构建直接上传。
 
 本地开发时可将 Node API 的 `MODE` 设为 `development`，并使用测试专用 `X-Dev-Viewer` 请求头；生产环境只接受身份核验桥接服务验证过的断言。
 
