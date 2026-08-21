@@ -50,24 +50,39 @@ export function OpsApp({ api }: OpsAppProps) {
   const [submissions, setSubmissions] = useState<OperatorSubmission[]>([]);
   const [settings, setSettings] = useState<ActivitySettings>();
   const [authorized, setAuthorized] = useState(false);
+  const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
   async function enterOperations() {
+    if (!password) {
+      setError('请输入运营后台密码');
+      return;
+    }
     setLoading(true);
     setError('');
     try {
-      await client.currentViewer();
+      await client.loginOperations(password);
       const [records, activitySettings] = await Promise.all([client.listSubmissions(), client.getActivitySettings()]);
       setSubmissions(records);
       setSettings(activitySettings);
       setAuthorized(true);
+      setPassword('');
     } catch (reason: unknown) {
-      setError(reason instanceof Error ? reason.message : '白名单验证失败');
+      setError(reason instanceof Error ? reason.message : '后台登录失败');
     } finally {
       setLoading(false);
     }
+  }
+
+  function leaveOperations() {
+    client.clearOperationsSession();
+    setAuthorized(false);
+    setSubmissions([]);
+    setSettings(undefined);
+    setPassword('');
+    setError('');
   }
 
   async function updateStatus(item: OperatorSubmission, status: ContestWorkStatus, isDisplayed = item.isDisplayed) {
@@ -111,9 +126,9 @@ export function OpsApp({ api }: OpsAppProps) {
 
   return (
     <ConfigProvider theme={{ token: { colorPrimary: '#8a5c34', borderRadius: 10, fontFamily: '"Noto Serif SC", "Songti SC", serif' } }}>
-      <main className="ops-shell"><header className="ops-header"><div><p>受保护入口</p><h1>运营工作台</h1></div>{authorized ? <Tag color="success">白名单验证通过</Tag> : null}</header>
+      <main className="ops-shell"><header className="ops-header"><div><p>受保护入口</p><h1>运营工作台</h1></div>{authorized ? <div className="ops-header-actions"><Tag color="success">密码验证通过</Tag><Button onClick={leaveOperations} size="small">退出后台</Button></div> : null}</header>
         {error ? <Alert message="无法完成运营操作" description={error} showIcon type="error" /> : null}
-        {!authorized ? <Card className="ops-login-card" title="验证运营身份"><p>请在 Bilibili Toy 内点击验证，平台会先确认你的账号资料，再检查运营白名单。</p><Button loading={loading} onClick={() => void enterOperations()} type="primary">验证身份并进入</Button></Card> : null}
+        {!authorized ? <Card className="ops-login-card" title="后台密码登录"><p>请输入运营后台密码。该密码只用于审核作品和活动设置，不影响公开页面的投稿与投票。</p><Input.Password aria-label="运营后台密码" onChange={(event) => setPassword(event.target.value)} onPressEnter={() => void enterOperations()} placeholder="输入运营后台密码" value={password} /><Button className="ops-login-button" loading={loading} onClick={() => void enterOperations()} type="primary">登录后台</Button></Card> : null}
         {authorized ? <>
           {settings ? <Card className="ops-settings" title="活动流程与对外时间"><div className="ops-settings-controls"><label>当前公开阶段<Select aria-label="当前公开阶段" onChange={(phase) => setSettings((current) => current ? { ...current, phase } : current)} options={phaseOptions} value={settings.phase} /></label><label className="preview-switch">测试预览<Switch aria-label="测试预览" checked={settings.previewMode} onChange={(previewMode) => setSettings((current) => current ? { ...current, previewMode } : current)} /><small>开启后，公开端同时显示投稿、盲选和投票流程。</small></label></div>
             <div className="ops-schedule-grid">{(Object.keys(settings.schedule) as Array<keyof ActivitySettings['schedule']>).map((stage) => <div key={stage}><strong>{settings.schedule[stage].label}</strong><Input aria-label={`${settings.schedule[stage].label}开始时间`} onChange={(event) => updateSchedule(stage, 'startAt', event.target.value)} placeholder="2026-08-20T00:00:00+08:00" value={stageTimestamp(settings, stage, 'startAt')} /><Input aria-label={`${settings.schedule[stage].label}结束时间`} onChange={(event) => updateSchedule(stage, 'endAt', event.target.value)} placeholder="2026-09-02T23:59:59+08:00" value={stageTimestamp(settings, stage, 'endAt')} /></div>)}</div>

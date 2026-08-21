@@ -22,7 +22,8 @@ export interface ActivityHttpClient {
 }
 
 export interface OperationsHttpClient {
-  currentViewer(): Promise<Viewer>;
+  loginOperations(password: string): Promise<{ expiresAt: string }>;
+  clearOperationsSession(): void;
   listSubmissions(): Promise<OperatorSubmission[]>;
   setSubmissionStatus(id: string, status: ContestWorkStatus, isDisplayed: boolean): Promise<void>;
   getActivitySettings(): Promise<ActivitySettings>;
@@ -31,6 +32,7 @@ export interface OperationsHttpClient {
 
 export class PublicActivityClient implements ActivityHttpClient, OperationsHttpClient {
   private viewerPromise: Promise<Viewer> | undefined;
+  private opsSessionToken: string | undefined;
 
   constructor(
     private readonly baseUrl = import.meta.env.VITE_API_BASE_URL ?? '',
@@ -73,26 +75,38 @@ export class PublicActivityClient implements ActivityHttpClient, OperationsHttpC
     return this.request('/api/v1/final-votes', { method: 'POST', json: input });
   }
 
+  async loginOperations(password: string): Promise<{ expiresAt: string }> {
+    const session = await this.request<{ token: string; expiresAt: string }>('/api/v1/ops/login', { method: 'POST', json: { password }, authenticated: false });
+    this.opsSessionToken = session.token;
+    return { expiresAt: session.expiresAt };
+  }
+
+  clearOperationsSession(): void {
+    this.opsSessionToken = undefined;
+  }
+
   listSubmissions(): Promise<OperatorSubmission[]> {
-    return this.request('/api/v1/ops/submissions');
+    return this.request('/api/v1/ops/submissions', { operations: true });
   }
 
   async setSubmissionStatus(id: string, status: ContestWorkStatus, isDisplayed: boolean): Promise<void> {
-    await this.request(`/api/v1/ops/submissions/${id}`, { method: 'PATCH', json: { status, isDisplayed } });
+    await this.request(`/api/v1/ops/submissions/${id}`, { method: 'PATCH', json: { status, isDisplayed }, operations: true });
   }
 
   getActivitySettings(): Promise<ActivitySettings> {
-    return this.request('/api/v1/ops/activity-settings');
+    return this.request('/api/v1/ops/activity-settings', { operations: true });
   }
 
   saveActivitySettings(settings: ActivitySettings): Promise<ActivitySettings> {
-    return this.request('/api/v1/ops/activity-settings', { method: 'PUT', json: settings });
+    return this.request('/api/v1/ops/activity-settings', { method: 'PUT', json: settings, operations: true });
   }
 
-  private async request<T>(path: string, options: { method?: string; json?: unknown; body?: BodyInit; authenticated?: boolean } = {}): Promise<T> {
+  private async request<T>(path: string, options: { method?: string; json?: unknown; body?: BodyInit; authenticated?: boolean; operations?: boolean } = {}): Promise<T> {
     const authenticated = options.authenticated ?? true;
-    const viewer = authenticated ? await this.currentViewer() : undefined;
+    if (options.operations && !this.opsSessionToken) throw new Error('operator_session_required');
+    const viewer = authenticated && !options.operations ? await this.currentViewer() : undefined;
     const headers = new Headers(options.json ? { 'content-type': 'application/json' } : undefined);
+    if (options.operations && this.opsSessionToken) headers.set('authorization', `Bearer ${this.opsSessionToken}`);
     if (viewer) {
       for (const [name, value] of Object.entries(identityHeaders(viewer))) headers.set(name, value);
     }

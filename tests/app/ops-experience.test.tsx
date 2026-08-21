@@ -13,31 +13,53 @@ const activitySettings = {
   }
 };
 
+function testLogin(api: OperationsApi) {
+  return { ...api, loginOperations: api.loginOperations ?? (async () => ({ expiresAt: '2026-08-21T14:00:00.000Z' })), clearOperationsSession: api.clearOperationsSession ?? vi.fn() };
+}
+
 describe('operations experience', () => {
-  test('waits for a user gesture before requesting the Toy profile', async () => {
-    const currentViewer = vi.fn(async () => ({ id: 'operator', name: '运营', avatarUrl: '' }));
-    const api: OperationsApi = {
-      currentViewer,
+  test('waits for a user gesture before submitting the operations password', async () => {
+    const loginOperations = vi.fn(async () => ({ expiresAt: '2026-08-21T14:00:00.000Z' }));
+    const api: OperationsApi = testLogin({
+      loginOperations,
       listSubmissions: async () => [],
       setSubmissionStatus: async () => undefined,
       getActivitySettings: async () => activitySettings,
       saveActivitySettings: async () => activitySettings
-    };
+    });
     const user = userEvent.setup();
 
     render(<OpsApp api={api} />);
 
-    expect(currentViewer).not.toHaveBeenCalled();
-    await user.click(screen.getByRole('button', { name: '验证身份并进入' }));
+    expect(loginOperations).not.toHaveBeenCalled();
+    await user.type(screen.getByLabelText('运营后台密码'), 'test-password');
+    await user.click(screen.getByRole('button', { name: '登录后台' }));
     expect(await screen.findByRole('heading', { name: '运营工作台' })).toBeVisible();
-    expect(screen.getByText('白名单验证通过')).toBeVisible();
-    expect(currentViewer).toHaveBeenCalledTimes(1);
+    expect(screen.getByText('密码验证通过')).toBeVisible();
+    expect(loginOperations).toHaveBeenCalledWith('test-password');
+  });
+
+  test('keeps the login card visible when the operations password is rejected', async () => {
+    const api: OperationsApi = testLogin({
+      loginOperations: vi.fn(async () => { throw new Error('operator_login_failed'); }),
+      listSubmissions: async () => [],
+      setSubmissionStatus: async () => undefined,
+      getActivitySettings: async () => activitySettings,
+      saveActivitySettings: async () => activitySettings
+    });
+    const user = userEvent.setup();
+
+    render(<OpsApp api={api} />);
+    await user.type(screen.getByLabelText('运营后台密码'), 'wrong-password');
+    await user.click(screen.getByRole('button', { name: '登录后台' }));
+
+    expect(await screen.findByText('operator_login_failed')).toBeVisible();
+    expect(screen.getByLabelText('运营后台密码')).toBeVisible();
   });
 
   test('lets an operator control finalist and public-display state separately', async () => {
     const setSubmissionStatus = vi.fn(async () => undefined);
-    const api: OperationsApi = {
-      currentViewer: async () => ({ id: 'operator', name: '运营', avatarUrl: '' }),
+    const api: OperationsApi = testLogin({
       listSubmissions: async () => [{
         id: 'work-1',
         title: '雨夜新装',
@@ -55,19 +77,19 @@ describe('operations experience', () => {
       setSubmissionStatus,
       getActivitySettings: async () => activitySettings,
       saveActivitySettings: async () => activitySettings
-    };
+    });
     const user = userEvent.setup();
 
     render(<OpsApp api={api} />);
-    await user.click(screen.getByRole('button', { name: '验证身份并进入' }));
+    await user.type(screen.getByLabelText('运营后台密码'), 'test-password');
+    await user.click(screen.getByRole('button', { name: '登录后台' }));
     await user.click(await screen.findByRole('switch', { name: '展示 雨夜新装' }));
 
     expect(setSubmissionStatus).toHaveBeenCalledWith('work-1', 'finalist', true);
   });
 
   test('shows the submitted media to the operator before it is approved', async () => {
-    const api: OperationsApi = {
-      currentViewer: async () => ({ id: 'operator', name: '运营', avatarUrl: '' }),
+    const api: OperationsApi = testLogin({
       listSubmissions: async () => [{
         id: 'pending-work',
         title: '待审作品',
@@ -85,11 +107,12 @@ describe('operations experience', () => {
       setSubmissionStatus: async () => undefined,
       getActivitySettings: async () => activitySettings,
       saveActivitySettings: async () => activitySettings
-    };
+    });
     const user = userEvent.setup();
 
     render(<OpsApp api={api} />);
-    await user.click(screen.getByRole('button', { name: '验证身份并进入' }));
+    await user.type(screen.getByLabelText('运营后台密码'), 'test-password');
+    await user.click(screen.getByRole('button', { name: '登录后台' }));
 
     expect(await screen.findByAltText('待审作品的作品预览')).toBeVisible();
     expect(screen.getAllByText('待审核').length).toBeGreaterThan(0);
@@ -97,16 +120,16 @@ describe('operations experience', () => {
 
   test('lets an operator save the public phase, preview mode and schedule', async () => {
     const saveActivitySettings = vi.fn(async () => activitySettings);
-    const api: OperationsApi = {
-      currentViewer: async () => ({ id: 'operator', name: '运营', avatarUrl: '' }),
+    const api: OperationsApi = testLogin({
       listSubmissions: async () => [],
       setSubmissionStatus: async () => undefined,
       getActivitySettings: async () => activitySettings,
       saveActivitySettings
-    };
+    });
     const user = userEvent.setup();
     render(<OpsApp api={api} />);
-    await user.click(screen.getByRole('button', { name: '验证身份并进入' }));
+    await user.type(screen.getByLabelText('运营后台密码'), 'test-password');
+    await user.click(screen.getByRole('button', { name: '登录后台' }));
 
     await user.click(await screen.findByRole('button', { name: '保存活动流程' }));
 
