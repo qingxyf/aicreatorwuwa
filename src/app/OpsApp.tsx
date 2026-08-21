@@ -56,15 +56,15 @@ export function OpsApp({ api }: OpsAppProps) {
   const [error, setError] = useState('');
 
   function handleOperationError(reason: unknown) {
-    const message = reason instanceof Error ? reason.message : '运营操作失败';
-    if (message === 'operator_session_required') {
+    const code = reason instanceof Error ? reason.message : '运营操作失败';
+    if (code === 'operator_session_required') {
       client.clearOperationsSession();
       setAuthorized(false);
       setSubmissions([]);
       setSettings(undefined);
       setPassword('');
     }
-    setError(message);
+    setError(code === 'operator_endpoint_unavailable' ? '运营后台接口尚未部署到服务器，请先更新 ECS 后端。' : code);
   }
 
   async function enterOperations() {

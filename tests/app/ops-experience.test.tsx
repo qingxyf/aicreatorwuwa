@@ -57,6 +57,23 @@ describe('operations experience', () => {
     expect(screen.getByLabelText('运营后台密码')).toBeVisible();
   });
 
+  test('explains when the operations endpoint has not been deployed', async () => {
+    const api: OperationsApi = testLogin({
+      loginOperations: vi.fn(async () => { throw new Error('operator_endpoint_unavailable'); }),
+      listSubmissions: async () => [],
+      setSubmissionStatus: async () => undefined,
+      getActivitySettings: async () => activitySettings,
+      saveActivitySettings: async () => activitySettings
+    });
+    const user = userEvent.setup();
+
+    render(<OpsApp api={api} />);
+    await user.type(screen.getByLabelText('运营后台密码'), 'test-password');
+    await user.click(screen.getByRole('button', { name: '登录后台' }));
+
+    expect(await screen.findByText('运营后台接口尚未部署到服务器，请先更新 ECS 后端。')).toBeVisible();
+  });
+
   test('lets an operator control finalist and public-display state separately', async () => {
     const setSubmissionStatus = vi.fn(async () => undefined);
     const api: OperationsApi = testLogin({

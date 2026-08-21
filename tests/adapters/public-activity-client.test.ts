@@ -23,4 +23,11 @@ describe('PublicActivityClient fetch binding', () => {
       globalThis.fetch = nativeFetch;
     }
   });
+
+  test('turns a non-JSON operations 404 into a stable endpoint error', async () => {
+    const fetcher = vi.fn(async () => new Response('404 Not Found', { status: 404, headers: { 'content-type': 'text/plain' } }));
+    const client = new PublicActivityClient('https://api.test', fetcher);
+
+    await expect(client.loginOperations('test-password')).rejects.toThrow('operator_endpoint_unavailable');
+  });
 });
