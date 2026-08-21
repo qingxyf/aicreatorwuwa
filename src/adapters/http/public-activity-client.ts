@@ -34,7 +34,7 @@ export class PublicActivityClient implements ActivityHttpClient, OperationsHttpC
 
   constructor(
     private readonly baseUrl = import.meta.env.VITE_API_BASE_URL ?? '',
-    private readonly fetcher: typeof fetch = fetch
+    private readonly fetcher: typeof fetch = globalThis.fetch.bind(globalThis)
   ) {}
 
   async loadConfig(): Promise<PublicContestConfig> {
