@@ -31,12 +31,14 @@
     OSS_ACCESS_KEY_ID=ram-user-key
     OSS_ACCESS_KEY_SECRET=ram-user-secret
     PUBLIC_APP_ORIGIN=https://www.bilibilitoy.com
-    MEDIA_PUBLIC_BASE_URL=https://api.example.com
+    MEDIA_PUBLIC_BASE_URL=https://qingxianyunfu.psdcut.com
     IDENTITY_VERIFY_URL=https://identity-bridge.example/verify
     IDENTITY_VERIFY_SECRET=server-only-secret
     ALLOW_TOY_PROFILE_IDENTITY=false
 
 PUBLIC_APP_ORIGIN 必须填写 Toy 内嵌页面的真实 Origin：`https://www.bilibilitoy.com`，不能填写外层分享地址 `https://www.bilibili.com`，也不能使用通配符。如果 Toy 页面由 GitHub Pages 预览，还需将对应 Origin 加入 OSS CORS，但生产 API 仍只允许正式 Toy Origin。
+
+当前生产 API 公网地址为 `https://qingxianyunfu.psdcut.com`，DNS 使用 A 记录指向 ECS `47.98.188.65`；Caddy 负责自动签发 HTTPS 并反向代理到 `127.0.0.1:8787`。
 
 如果暂时没有身份断言桥接服务，可将服务端 `ALLOW_TOY_PROFILE_IDENTITY=true`、前端构建变量 `VITE_TRUST_TOY_PROFILE=true`。这会把 Toy SDK 返回的稳定开放标识、昵称和头像作为弱身份使用，能支持当前活动但不能抵御伪造请求；正式活动建议改回 `false` 并接入签名断言验证器。
 
