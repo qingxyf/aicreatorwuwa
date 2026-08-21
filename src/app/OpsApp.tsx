@@ -55,6 +55,18 @@ export function OpsApp({ api }: OpsAppProps) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
+  function handleOperationError(reason: unknown) {
+    const message = reason instanceof Error ? reason.message : '运营操作失败';
+    if (message === 'operator_session_required') {
+      client.clearOperationsSession();
+      setAuthorized(false);
+      setSubmissions([]);
+      setSettings(undefined);
+      setPassword('');
+    }
+    setError(message);
+  }
+
   async function enterOperations() {
     if (!password) {
       setError('请输入运营后台密码');
@@ -70,7 +82,7 @@ export function OpsApp({ api }: OpsAppProps) {
       setAuthorized(true);
       setPassword('');
     } catch (reason: unknown) {
-      setError(reason instanceof Error ? reason.message : '后台登录失败');
+      handleOperationError(reason);
     } finally {
       setLoading(false);
     }
@@ -91,7 +103,7 @@ export function OpsApp({ api }: OpsAppProps) {
       await client.setSubmissionStatus(item.id, status, displayed);
       setSubmissions((current) => current.map((record) => record.id === item.id ? { ...record, status, isDisplayed: displayed } : record));
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : '更新状态失败');
+      handleOperationError(reason);
     }
   }
 
@@ -107,7 +119,7 @@ export function OpsApp({ api }: OpsAppProps) {
       const saved = await client.saveActivitySettings(settings);
       setSettings(saved);
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : '活动流程保存失败');
+      handleOperationError(reason);
     } finally {
       setSaving(false);
     }

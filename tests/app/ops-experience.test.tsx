@@ -88,6 +88,39 @@ describe('operations experience', () => {
     expect(setSubmissionStatus).toHaveBeenCalledWith('work-1', 'finalist', true);
   });
 
+  test('returns to the password card when an operations session expires', async () => {
+    const clearOperationsSession = vi.fn();
+    const api: OperationsApi = testLogin({
+      clearOperationsSession,
+      listSubmissions: async () => [{
+        id: 'work-expired',
+        title: '会话过期作品',
+        authorName: '投稿者',
+        authorAvatar: '',
+        media: [],
+        finalVotes: 0,
+        trackId: 'wardrobe-design',
+        status: 'finalist',
+        isDisplayed: false,
+        pairingWins: 0,
+        exposureCount: 0,
+        createdAt: '2026-08-20T00:00:00.000Z'
+      }],
+      setSubmissionStatus: async () => { throw new Error('operator_session_required'); },
+      getActivitySettings: async () => activitySettings,
+      saveActivitySettings: async () => activitySettings
+    });
+    const user = userEvent.setup();
+
+    render(<OpsApp api={api} />);
+    await user.type(screen.getByLabelText('运营后台密码'), 'test-password');
+    await user.click(screen.getByRole('button', { name: '登录后台' }));
+    await user.click(await screen.findByRole('switch', { name: '展示 会话过期作品' }));
+
+    expect(clearOperationsSession).toHaveBeenCalled();
+    expect(screen.getByLabelText('运营后台密码')).toBeVisible();
+  });
+
   test('shows the submitted media to the operator before it is approved', async () => {
     const api: OperationsApi = testLogin({
       listSubmissions: async () => [{
