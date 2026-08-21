@@ -35,6 +35,9 @@
     IDENTITY_VERIFY_URL=https://identity-bridge.example/verify
     IDENTITY_VERIFY_SECRET=server-only-secret
     ALLOW_TOY_PROFILE_IDENTITY=false
+    OPS_ADMIN_PASSWORD_HASH=scrypt$...
+    OPS_SESSION_SECRET=generate-a-long-random-secret
+    OPS_SESSION_TTL_SECONDS=1800
 
 PUBLIC_APP_ORIGIN 必须填写 Toy 内嵌页面的真实 Origin：`https://www.bilibilitoy.com`，不能填写外层分享地址 `https://www.bilibili.com`，也不能使用通配符。如果 Toy 页面由 GitHub Pages 预览，还需将对应 Origin 加入 OSS CORS，但生产 API 仍只允许正式 Toy Origin。
 
@@ -51,15 +54,16 @@ PUBLIC_APP_ORIGIN 必须填写 Toy 内嵌页面的真实 Origin：`https://www.b
 
 PostgreSQL 只映射在 Compose 私网，API 仅绑定本机 8787，公网通过 Nginx/Caddy 反代到 HTTPS。安全组只开放 80/443；SSH 配置密钥后把 22 限制为个人固定 IP。
 
-## 3. 数据库和白名单
+## 3. 数据库和运营认证
 
 API 容器启动前会运行 `server/migrate.ts`，按文件名顺序执行 `server/migrations/*.sql`，并在 `schema_migrations` 中记录已应用版本。四赛道迁移由 `002_four_tracks.sql` 完成；旧版两赛道测试记录会映射到新的奖项赛道并保留票数。生产执行迁移前仍应先完成数据库备份。
 
-身份核验服务返回的规范化 Viewer.id（Toy 内稳定开放标识，不是 B 站 UID/MID）加入白名单：
+当前运营后台使用独立密码会话，不按 B 站 UID/MID 判断管理员。先在部署机生成密码哈希（命令不会输出密码明文）：
 
-    docker compose exec db psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "INSERT INTO admins(viewer_id) VALUES ('VERIFIED_TOY_OPEN_ID') ON CONFLICT DO NOTHING;"
+    $env:OPS_PASSWORD='在密码管理器中临时设置的后台密码'
+    node scripts/generate-ops-password-hash.mjs
 
-只有白名单账号能访问 /ops 的数据和写接口，公开页面不显示后台入口。
+将命令输出填入 ECS `.env` 的 `OPS_ADMIN_PASSWORD_HASH`，并为 `OPS_SESSION_SECRET` 设置另一组随机长密钥。两者只存在 ECS，不提交 GitHub。`admins` 表保留用于历史回滚，但当前密码模式不读取它；公开页面不显示后台入口。
 
 ## 4. 本地构建和 GitHub Pages 预览
 
@@ -86,7 +90,7 @@ Toy 包内使用 `./` 作为 Vite base，避免 `/toy/<slug>/` 子路径下的�
 
 ## 6. 活动运营
 
-白名单账号打开 Toy 包内的 `ops.html`（自有静态服务器可使用 `/ops`）并验证身份后：
+运营人员打开 Toy 包内的 `ops.html`（正式地址通常为 `/toy/<slug>/ops.html`），输入运营后台密码后：
 
 1. 设置当前阶段：投稿、盲选、投票或结束。
 2. 设置三个阶段的起止时间（北京时间）。
