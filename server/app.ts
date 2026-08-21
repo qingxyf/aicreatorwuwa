@@ -8,6 +8,7 @@ import type { WorkStatus } from '../src/types/activity';
 import type { ActivitySettings, ContestPhase, ContestTrackId, FinalVoteInput, PairingVoteInput, SubmissionInput } from '../src/types/contest';
 import type { Viewer } from '../src/types/platform';
 import { verifyIdentity, type IdentityOptions } from './identity';
+import { issueOpsSession, verifyOpsPassword, verifyOpsSession } from './ops-auth';
 import { PostgresContestRepository } from './repository';
 import type { OssMediaStore } from './oss';
 import type pg from 'pg';
@@ -16,6 +17,11 @@ export interface ServerDependencies {
   pool: pg.Pool;
   mediaStore: OssMediaStore;
   identity: IdentityOptions;
+  opsAuth?: {
+    passwordHash?: string;
+    sessionSecret?: string;
+    sessionTtlSeconds?: number;
+  };
   publicAppOrigin?: string;
   mediaBaseUrl?: string;
   mode?: 'development' | 'production';
@@ -30,7 +36,7 @@ const trackIds = new Set(trackDefinitions.map((track) => track.id));
 const phaseValues = new Set<ContestPhase>(['submission', 'pairing', 'final-vote', 'closed']);
 const statusValues = new Set<WorkStatus>(['pending', 'approved', 'finalist', 'hidden', 'draft']);
 const safeClientErrors = new Set([
-  'identity_verifier_unconfigured', 'identity_assertion_missing', 'identity_assertion_rejected', 'identity_assertion_invalid', 'operator_required',
+  'identity_verifier_unconfigured', 'identity_assertion_missing', 'identity_assertion_rejected', 'identity_assertion_invalid', 'operator_required', 'ops_auth_unconfigured', 'operator_login_failed', 'operator_session_required',
   'submission_limit', 'pairing_limit', 'duplicate_work', 'daily_limit', 'media_required', 'media_not_owned', 'media_requirement_not_met',
   'pairing_assignment_invalid', 'final_vote_not_recorded', 'unsupported_media_type', 'media_too_large', 'invalid_media_signature',
   'media_file_required', 'invalid_track', 'invalid_submission', 'invalid_pairing_vote', 'invalid_final_vote', 'invalid_activity_settings',
@@ -43,8 +49,9 @@ function isContestPhase(value: unknown): value is ContestPhase { return typeof v
 function dateInContestTimezone(): string { return new Intl.DateTimeFormat('en-CA', { timeZone: contestTimezone }).format(new Date()); }
 function errorStatus(message: string): number {
   if (message === 'identity_verifier_unconfigured') return 503;
+  if (message === 'ops_auth_unconfigured') return 503;
   if (message === 'identity_assertion_missing' || message === 'identity_assertion_rejected' || message === 'identity_assertion_invalid') return 401;
-  if (message === 'operator_required') return 403;
+  if (message === 'operator_required' || message === 'operator_login_failed' || message === 'operator_session_required') return message === 'operator_required' ? 403 : 401;
   if (message === 'request_too_large') return 413;
   if (message === 'rate_limit_exceeded') return 429;
   if (message === 'submission_limit' || message === 'pairing_limit' || message === 'daily_limit' || message === 'activity_phase_inactive') return 409;
@@ -85,6 +92,9 @@ export function createServerApp(dependencies: ServerDependencies) {
   const repository = new PostgresContestRepository(dependencies.pool, dependencies.mediaBaseUrl ?? '');
   const server = new Hono<AppEnv>();
   const mode = dependencies.mode ?? dependencies.identity.mode;
+  const loginFailures = new Map<string, { count: number; windowStartedAt: number }>();
+  const loginWindowMs = 5 * 60 * 1000;
+  const loginFailureLimit = 5;
   server.use('/api/*', cors({
     origin: (origin) => mode !== 'production' ? origin || '*' : origin === dependencies.publicAppOrigin ? origin : '',
     allowHeaders: ['Authorization', 'Content-Type', 'X-Dev-Viewer', 'X-Toy-Profile'],
@@ -103,10 +113,24 @@ export function createServerApp(dependencies: ServerDependencies) {
     const settings = await repository.getActivitySettings();
     if (!isActivityActionAllowed(settings.phase, settings.previewMode, phase)) throw new Error('activity_phase_inactive');
   };
-  const operatorContext = async (request: Request) => {
-    const viewer = await viewerForRequest(request);
-    if (!(await repository.isOperator(viewer.id))) throw new Error('operator_required');
-    return viewer;
+  const operatorContext = (request: Request): string => {
+    const sessionSecret = dependencies.opsAuth?.sessionSecret;
+    if (!sessionSecret) throw new Error('ops_auth_unconfigured');
+    const authorization = request.headers.get('authorization') ?? '';
+    const token = /^Bearer\s+(.+)$/i.exec(authorization)?.[1];
+    if (!token || !verifyOpsSession(token, sessionSecret)) throw new Error('operator_session_required');
+    return 'ops-admin';
+  };
+  const loginKey = (request: Request): string => (request.headers.get('x-forwarded-for') ?? request.headers.get('x-real-ip') ?? 'unknown').split(',')[0].trim() || 'unknown';
+  const canAttemptLogin = (key: string, now = Date.now()): boolean => {
+    const state = loginFailures.get(key);
+    if (!state || now - state.windowStartedAt >= loginWindowMs) { loginFailures.delete(key); return true; }
+    return state.count < loginFailureLimit;
+  };
+  const recordLoginFailure = (key: string, now = Date.now()): void => {
+    const state = loginFailures.get(key);
+    if (!state || now - state.windowStartedAt >= loginWindowMs) loginFailures.set(key, { count: 1, windowStartedAt: now });
+    else state.count += 1;
   };
 
   server.get('/healthz', async (context) => {
@@ -115,6 +139,21 @@ export function createServerApp(dependencies: ServerDependencies) {
   });
   server.get('/api/v1/config', async (context) => context.json({ ...(await repository.getActivitySettings()), tracks: trackDefinitions }));
   server.post('/api/v1/session', async (context) => context.json(await viewerForRequest(context.req.raw)));
+  server.post('/api/v1/ops/login', async (context) => {
+    assertRequestSize(context.req.raw, 4 * 1024);
+    const passwordHash = dependencies.opsAuth?.passwordHash;
+    const sessionSecret = dependencies.opsAuth?.sessionSecret;
+    if (!passwordHash || !sessionSecret) throw new Error('ops_auth_unconfigured');
+    const key = loginKey(context.req.raw);
+    if (!canAttemptLogin(key)) throw new Error('rate_limit_exceeded');
+    const payload = await context.req.json<{ password?: unknown }>();
+    if (typeof payload.password !== 'string' || !(await verifyOpsPassword(payload.password, passwordHash))) {
+      recordLoginFailure(key);
+      throw new Error('operator_login_failed');
+    }
+    loginFailures.delete(key);
+    return context.json(issueOpsSession(sessionSecret, dependencies.opsAuth?.sessionTtlSeconds ?? 1_800));
+  });
   server.get('/api/v1/tracks/:trackId/gallery', async (context) => {
     const trackId = context.req.param('trackId');
     if (!isTrackId(trackId)) return context.json({ error: 'invalid_track' }, 400);
@@ -174,21 +213,21 @@ export function createServerApp(dependencies: ServerDependencies) {
     if (!isTrackId(payload.trackId) || typeof payload.workId !== 'string') throw new Error('invalid_final_vote');
     return context.json(await new ContestService(repository).castFinalVote({ viewerId: viewer.id, trackId: payload.trackId, workId: payload.workId, day: dateInContestTimezone() }));
   });
-  server.get('/api/v1/ops/submissions', async (context) => { await operatorContext(context.req.raw); return context.json(await repository.listOperatorSubmissions()); });
+  server.get('/api/v1/ops/submissions', async (context) => { operatorContext(context.req.raw); return context.json(await repository.listOperatorSubmissions()); });
   server.patch('/api/v1/ops/submissions/:id', async (context) => {
     assertRequestSize(context.req.raw, 64 * 1024);
-    const viewer = await operatorContext(context.req.raw);
-    if (!(await repository.consumeRateLimit(viewer.id, 'ops-write', requestRateLimits['ops-write']))) throw new Error('rate_limit_exceeded');
+    const operator = operatorContext(context.req.raw);
+    if (!(await repository.consumeRateLimit(operator, 'ops-write', requestRateLimits['ops-write']))) throw new Error('rate_limit_exceeded');
     const payload = await context.req.json<{ status?: string; isDisplayed?: boolean }>();
     if (!payload.status || !statusValues.has(payload.status as WorkStatus)) throw new Error('invalid_status');
     await repository.setSubmissionState(context.req.param('id'), payload.status as WorkStatus, payload.isDisplayed === true);
     return context.body(null, 204);
   });
-  server.get('/api/v1/ops/activity-settings', async (context) => { await operatorContext(context.req.raw); return context.json(await repository.getActivitySettings()); });
+  server.get('/api/v1/ops/activity-settings', async (context) => { operatorContext(context.req.raw); return context.json(await repository.getActivitySettings()); });
   server.put('/api/v1/ops/activity-settings', async (context) => {
     assertRequestSize(context.req.raw, 64 * 1024);
-    const viewer = await operatorContext(context.req.raw);
-    if (!(await repository.consumeRateLimit(viewer.id, 'ops-write', requestRateLimits['ops-write']))) throw new Error('rate_limit_exceeded');
+    const operator = operatorContext(context.req.raw);
+    if (!(await repository.consumeRateLimit(operator, 'ops-write', requestRateLimits['ops-write']))) throw new Error('rate_limit_exceeded');
     return context.json(await repository.saveActivitySettings(activitySettingsFromPayload(await context.req.json<ActivitySettingsPayload>())));
   });
   server.onError((error) => new Response(JSON.stringify({ error: safeClientErrors.has(error.message) ? error.message : 'internal_error' }), { status: errorStatus(error.message), headers: { 'content-type': 'application/json; charset=utf-8' } }));

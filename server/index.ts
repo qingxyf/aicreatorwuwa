@@ -30,6 +30,11 @@ const app = createServerApp({
     verificationUrl: process.env.IDENTITY_VERIFY_URL,
     verificationSecret: process.env.IDENTITY_VERIFY_SECRET,
     allowToyProfile: process.env.ALLOW_TOY_PROFILE_IDENTITY === 'true'
+  },
+  opsAuth: {
+    passwordHash: process.env.OPS_ADMIN_PASSWORD_HASH,
+    sessionSecret: process.env.OPS_SESSION_SECRET,
+    sessionTtlSeconds: process.env.OPS_SESSION_TTL_SECONDS ? Number(process.env.OPS_SESSION_TTL_SECONDS) : undefined
   }
 });
 
