@@ -42,8 +42,12 @@ export async function hasMatchingMediaSignature(file: Pick<File, 'type' | 'slice
 export class OssMediaStore {
   private readonly client: OSS;
 
-  constructor(private readonly config: OssConfig) {
+  constructor(private readonly config: OssConfig, client?: OSS) {
     if ((!config.accessKeyId || !config.accessKeySecret) && !config.ramRoleName) throw new Error('oss_credentials_required');
+    if (client) {
+      this.client = client;
+      return;
+    }
     const options = {
       region: config.region,
       bucket: config.bucket,
@@ -98,6 +102,13 @@ export class OssMediaStore {
       const code = typeof error === 'object' && error !== null && 'code' in error ? String(error.code) : '';
       if (code !== 'NoSuchKey') throw error;
     }
+  }
+
+  async rewritePrivate(id: string): Promise<void> {
+    const result = await this.client.get(id);
+    const content = Buffer.isBuffer(result.content) ? result.content : Buffer.from(result.content);
+    const contentType = result.res.headers['content-type'] ?? 'application/octet-stream';
+    await this.client.put(id, content, { headers: mediaObjectHeaders(contentType) });
   }
 
   async remove(id: string): Promise<void> {

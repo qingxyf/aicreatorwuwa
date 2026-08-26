@@ -12,6 +12,7 @@
     "start:api": "tsx server/index.ts",
     "build:toy": "tsc -b && vite build --mode toy",
     "db:migrate": "tsx server/migrate.ts",
+    "media:harden": "tsx server/harden-existing-media.ts",
     "check:architecture": "node scripts/harness/check-architecture.mjs",
     "check:bundle-size": "node scripts/harness/check-bundle-size.mjs",
     "check:precompletion": "npm run build && npm run lint && npm test && npm run check:architecture && npm run check:bundle-size",

@@ -1,5 +1,5 @@
-import { describe, expect, test } from 'vitest';
-import { hasMatchingMediaSignature, mediaObjectHeaders } from '../../server/oss';
+import { describe, expect, test, vi } from 'vitest';
+import { hasMatchingMediaSignature, mediaObjectHeaders, OssMediaStore } from '../../server/oss';
 
 function file(type: string, bytes: number[]): File {
   return { type, slice: () => ({ arrayBuffer: async () => Uint8Array.from(bytes).buffer }) } as unknown as File;
@@ -17,5 +17,25 @@ describe('Alibaba OSS media validation', () => {
       'Cache-Control': 'private, no-store',
       'x-oss-object-acl': 'private'
     });
+  });
+
+  test('fails closed when a recorded legacy object is missing during hardening', async () => {
+    const missing = Object.assign(new Error('missing'), { code: 'NoSuchKey' });
+    const client = { get: vi.fn(async () => { throw missing; }), put: vi.fn() };
+    const store = new OssMediaStore({ region: 'oss-test', bucket: 'test', accessKeyId: 'id', accessKeySecret: 'secret' }, client as never);
+
+    await expect(store.rewritePrivate('missing-media')).rejects.toBe(missing);
+    expect(client.put).not.toHaveBeenCalled();
+  });
+
+  test('counts a rewrite only after the private object PUT succeeds', async () => {
+    const client = {
+      get: vi.fn(async () => ({ content: Buffer.from('image'), res: { headers: { 'content-type': 'image/png' } } })),
+      put: vi.fn(async () => ({ name: 'media-a' }))
+    };
+    const store = new OssMediaStore({ region: 'oss-test', bucket: 'test', accessKeyId: 'id', accessKeySecret: 'secret' }, client as never);
+
+    await expect(store.rewritePrivate('media-a')).resolves.toBeUndefined();
+    expect(client.put).toHaveBeenCalledWith('media-a', Buffer.from('image'), { headers: mediaObjectHeaders('image/png') });
   });
 });

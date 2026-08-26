@@ -1,15 +1,17 @@
 # Bilibili Toy 与阿里云 ECS 部署说明
 
-生产结构为：Toy 静态前端 → HTTPS → ECS Node.js API → PostgreSQL + 私有 OSS。项目不依赖 Cloudflare Worker、D1 或 R2。
+生产结构为：Toy 静态前端 → HTTPS → ECS Node.js API → PostgreSQL + OSS。项目不依赖 Cloudflare Worker、D1 或 R2。当前 Bucket 按运营要求保持公共读，但活动上传对象必须使用对象级 `private` ACL，公开媒体统一由 Node API 代理。
 
 ## 1. 已准备的云资源
 
 - ECS：Ubuntu 22.04，2 vCPU / 4 GiB，公网 IP 47.98.188.65。
-- OSS Bucket：aixiaozhanandmingchaoxiaozhan，华东 1（杭州），标准存储、同城冗余、阻止公共访问已开启。
+- OSS Bucket：aixiaozhanandmingchaoxiaozhan，华东 1（杭州），标准存储、同城冗余、Bucket ACL 为公共读；活动对象由上传代码强制设置为对象级 `private`。
 - OSS CORS：允许 B 站、GitHub Pages 和本地预览来源，GET/POST/PUT/HEAD，暴露 ETag 与 x-oss-request-id。
 - OSS 生命周期：未完成分片 7 天后自动清理。
 
-不要把 AccessKey、SecretKey、SSH 私钥或身份断言写入仓库或发送到聊天中。服务器使用 RAM 最小权限凭据，只允许当前 Bucket 的对象读写、分片上传和终止分片。
+不要把 AccessKey、SecretKey、SSH 私钥或身份断言写入仓库或发送到聊天中。服务器使用 RAM 最小权限凭据，只允许当前 Bucket 的对象读写、分片上传和终止分片。新对象通过 `PutObject` 的 `x-oss-object-acl: private` 设置私有 ACL，不要求额外的 `PutObjectAcl` 权限。
+
+若 Bucket 曾以公共读方式接收过旧对象，部署新版本后在 API 容器中运行一次 `npm run media:harden`。该命令逐个读取并原地重写 `media_objects` 中的对象，将它们改为对象级 private；执行后应确认 OSS 直链返回 403，而 `/api/v1/media/:id` 仅对已审核公开作品或后台短时签名地址返回内容。
 
 ## 2. ECS 初始化
 
