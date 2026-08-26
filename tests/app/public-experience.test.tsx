@@ -112,6 +112,31 @@ describe('public activity experience', () => {
     expect(screen.getByText(/已识别为图片/)).toBeVisible();
   });
 
+  test('appends files across selections and lets the creator remove one preview', async () => {
+    const user = userEvent.setup();
+    render(<App api={createApi({ phase: 'submission' })} />);
+
+    await user.click(await screen.findByRole('link', { name: '我要投稿' }));
+    const fileInput = screen.getByLabelText('添加作品文件');
+    await user.upload(fileInput, [
+      new File(['one'], 'work-1.png', { type: 'image/png' }),
+      new File(['two'], 'work-2.png', { type: 'image/png' })
+    ]);
+    await user.upload(fileInput, [
+      new File(['three'], 'work-3.png', { type: 'image/png' }),
+      new File(['four'], 'work-4.png', { type: 'image/png' })
+    ]);
+
+    expect(screen.getAllByRole('img', { name: /的缩略图$/ })).toHaveLength(4);
+    expect(screen.getByText(/已选择 4 个文件/)).toBeVisible();
+
+    await user.click(screen.getByRole('button', { name: '删除 work-2.png' }));
+
+    expect(screen.queryByRole('img', { name: 'work-2.png 的缩略图' })).not.toBeInTheDocument();
+    expect(screen.getAllByRole('img', { name: /的缩略图$/ })).toHaveLength(3);
+    expect(screen.getByText(/已选择 3 个文件/)).toBeVisible();
+  });
+
   test('shows all three public flows only when the operations preview switch is enabled', async () => {
     const api = createApi();
     api.loadConfig = async () => ({

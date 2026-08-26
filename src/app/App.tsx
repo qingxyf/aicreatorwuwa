@@ -19,6 +19,7 @@ import {
   ArrowRightOutlined,
   CheckCircleFilled,
   CloudUploadOutlined,
+  DeleteOutlined,
   HeartFilled,
   PictureOutlined,
 } from '@ant-design/icons';
@@ -137,6 +138,40 @@ function RulePanel({ track }: { track: PublicTrack }) {
       <p className="rule-summary">{track.summary}</p>
       <ul>{track.requirements.map((requirement) => <li key={requirement}><CheckCircleFilled />{requirement}</li>)}</ul>
     </Card>
+  );
+}
+
+function fileIdentity(file: File): string {
+  return `${file.name}:${file.size}:${file.lastModified}:${file.type}`;
+}
+
+function SelectedMediaPreview({ file, onRemove }: { file: File; onRemove: () => void }) {
+  const [previewUrl, setPreviewUrl] = useState('');
+
+  useEffect(() => {
+    if (typeof URL.createObjectURL === 'function') {
+      const objectUrl = URL.createObjectURL(file);
+      setPreviewUrl(objectUrl);
+      return () => URL.revokeObjectURL(objectUrl);
+    }
+
+    const reader = new FileReader();
+    reader.addEventListener('load', () => setPreviewUrl(typeof reader.result === 'string' ? reader.result : ''));
+    reader.readAsDataURL(file);
+    return () => reader.readyState === FileReader.LOADING && reader.abort();
+  }, [file]);
+
+  return (
+    <article className="selected-media-card">
+      <div className="selected-media-visual">
+        {previewUrl && file.type.startsWith('image/') ? <img alt={`${file.name} 的缩略图`} src={previewUrl} /> : null}
+        {previewUrl && file.type.startsWith('video/') ? <video aria-label={`${file.name} 的视频预览`} muted preload="metadata" src={previewUrl} /> : null}
+        {!previewUrl ? <span>{file.type.startsWith('video/') ? '视频' : '图片'}</span> : null}
+        <button aria-label={`删除 ${file.name}`} className="selected-media-remove" onClick={onRemove} type="button"><DeleteOutlined /></button>
+      </div>
+      <strong title={file.name}>{file.name}</strong>
+      <small>{(file.size / 1024 / 1024).toFixed(2)} MB</small>
+    </article>
   );
 }
 
@@ -304,6 +339,28 @@ export function App({ api }: AppProps) {
     setSubmissionNotice('');
   }
 
+  function addSelectedFiles(files: File[]) {
+    if (files.length === 0) return;
+    setSelectedFiles((current) => {
+      if (submissionTrack.acceptedMedia.length === 1 && submissionTrack.acceptedMedia[0] === 'video') {
+        return files.slice(0, 1);
+      }
+      const identities = new Set(current.map(fileIdentity));
+      const additions = files.filter((file) => {
+        const identity = fileIdentity(file);
+        if (identities.has(identity)) return false;
+        identities.add(identity);
+        return true;
+      });
+      return [...current, ...additions];
+    });
+  }
+
+  function removeSelectedFile(file: File) {
+    const identity = fileIdentity(file);
+    setSelectedFiles((current) => current.filter((item) => fileIdentity(item) !== identity));
+  }
+
   async function submitWork(values: SubmissionFormValues) {
     if (selectedFiles.length === 0) {
       setSubmissionNotice('请先添加至少一个图片或视频文件');
@@ -451,7 +508,23 @@ export function App({ api }: AppProps) {
             <Form.Item label="作品标题" name="title" rules={[{ required: true, message: '请填写作品标题' }]}><Input maxLength={40} placeholder="给作品取一个名字" /></Form.Item>
             <Form.Item label="角色名称" name="characterName"><Input maxLength={40} placeholder="例如：椿、今汐……" /></Form.Item>
             <Form.Item label="创作说明" name="description"><Input.TextArea maxLength={500} placeholder="说说你的创作思路" rows={4} showCount /></Form.Item>
-            <div className="file-picker"><label htmlFor="media-input">作品文件</label><p className="media-kind-hint">{acceptedMediaText(submissionTrack)}</p><input accept={submissionTrack.acceptedMedia.map((kind) => kind === 'image' ? 'image/*' : 'video/*').join(',')} aria-label="添加作品文件" id="media-input" multiple onChange={(event) => setSelectedFiles(Array.from(event.target.files ?? []))} type="file" /><p>{selectedFiles.length ? `${detectedMediaType(selectedFiles)} · 已选择 ${selectedFiles.length} 个文件：${selectedFiles.map((file) => file.name).join('、')}` : `本赛道：${acceptedMediaText(submissionTrack)}`}</p></div>
+            <div className="file-picker">
+              <label htmlFor="media-input">作品文件</label>
+              <p className="media-kind-hint">{acceptedMediaText(submissionTrack)}</p>
+              <input
+                accept={submissionTrack.acceptedMedia.map((kind) => kind === 'image' ? 'image/*' : 'video/*').join(',')}
+                aria-label="添加作品文件"
+                id="media-input"
+                multiple={submissionTrack.acceptedMedia[0] !== 'video'}
+                onChange={(event) => {
+                  addSelectedFiles(Array.from(event.target.files ?? []));
+                  event.currentTarget.value = '';
+                }}
+                type="file"
+              />
+              <p>{selectedFiles.length ? `${detectedMediaType(selectedFiles)} · 已选择 ${selectedFiles.length} 个文件，可继续添加或删除` : `本赛道：${acceptedMediaText(submissionTrack)}`}</p>
+              {selectedFiles.length ? <div aria-label="已选作品文件" className="selected-media-grid">{selectedFiles.map((file) => <SelectedMediaPreview file={file} key={fileIdentity(file)} onRemove={() => removeSelectedFile(file)} />)}</div> : null}
+            </div>
             {submissionNotice ? <Alert className="submission-notice" message={submissionNotice} showIcon type={submissionNotice.includes('已提交') || submissionNotice.includes('已保存') ? 'success' : 'warning'} /> : null}
             <Button aria-label="提交作品" block htmlType="submit" icon={<CloudUploadOutlined />} loading={isSubmitting} size="large" type="primary">提交作品</Button>
           </Form>
