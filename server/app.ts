@@ -9,6 +9,7 @@ import type { ActivitySettings, ContestPhase, ContestTrackId, FinalVoteInput, Pa
 import type { Viewer } from '../src/types/platform';
 import { verifyIdentity, type IdentityOptions } from './identity';
 import { issueOpsSession, verifyOpsPassword, verifyOpsSession } from './ops-auth';
+import { issueMediaAccessGrant, verifyMediaAccessGrant } from './media-access';
 import { PostgresContestRepository } from './repository';
 import type { OssMediaStore } from './oss';
 import type pg from 'pg';
@@ -111,7 +112,7 @@ export function createServerApp(dependencies: ServerDependencies) {
   };
   const assertActivityPhase = async (phase: PublicActivityPhase): Promise<void> => {
     const settings = await repository.getActivitySettings();
-    if (!isActivityActionAllowed(settings.phase, settings.previewMode, phase)) throw new Error('activity_phase_inactive');
+    if (!isActivityActionAllowed(settings.phase, settings.previewMode, phase, settings.schedule)) throw new Error('activity_phase_inactive');
   };
   const operatorContext = (request: Request): string => {
     const sessionSecret = dependencies.opsAuth?.sessionSecret;
@@ -173,9 +174,17 @@ export function createServerApp(dependencies: ServerDependencies) {
   server.get('/api/v1/media/:id', async (context) => {
     const id = context.req.param('id');
     if (!mediaIdPattern.test(id)) return context.json({ error: 'invalid_media_id' }, 400);
+    const operatorGrant = verifyMediaAccessGrant(
+      id,
+      context.req.query('expires'),
+      context.req.query('signature'),
+      dependencies.opsAuth?.sessionSecret
+    );
+    const isPublic = await repository.isMediaPublic(id);
+    if (!isPublic && !operatorGrant) return context.notFound();
     const object = await dependencies.mediaStore.read(id);
     if (!object) return context.notFound();
-    return new Response(object.content, { headers: { 'cache-control': 'public, max-age=31536000, immutable', 'content-type': object.type ?? 'application/octet-stream', 'x-content-type-options': 'nosniff' } });
+    return new Response(object.content, { headers: { 'cache-control': isPublic ? 'public, max-age=31536000, immutable' : 'private, no-store', 'content-type': object.type ?? 'application/octet-stream', 'x-content-type-options': 'nosniff' } });
   });
   server.post('/api/v1/submissions', async (context) => {
     assertRequestSize(context.req.raw, 64 * 1024);
@@ -213,7 +222,22 @@ export function createServerApp(dependencies: ServerDependencies) {
     if (!isTrackId(payload.trackId) || typeof payload.workId !== 'string') throw new Error('invalid_final_vote');
     return context.json(await new ContestService(repository).castFinalVote({ viewerId: viewer.id, trackId: payload.trackId, workId: payload.workId, day: dateInContestTimezone() }));
   });
-  server.get('/api/v1/ops/submissions', async (context) => { operatorContext(context.req.raw); return context.json(await repository.listOperatorSubmissions()); });
+  server.get('/api/v1/ops/submissions', async (context) => {
+    operatorContext(context.req.raw);
+    const sessionSecret = dependencies.opsAuth?.sessionSecret;
+    if (!sessionSecret) throw new Error('ops_auth_unconfigured');
+    const submissions = await repository.listOperatorSubmissions();
+    return context.json(submissions.map((submission) => ({
+      ...submission,
+      media: submission.media.map((media) => {
+        const grant = issueMediaAccessGrant(media.id, sessionSecret, 5 * 60);
+        const url = new URL(media.url, dependencies.mediaBaseUrl || context.req.url);
+        url.searchParams.set('expires', grant.expires);
+        url.searchParams.set('signature', grant.signature);
+        return { ...media, url: url.toString() };
+      })
+    })));
+  });
   server.patch('/api/v1/ops/submissions/:id', async (context) => {
     assertRequestSize(context.req.raw, 64 * 1024);
     const operator = operatorContext(context.req.raw);

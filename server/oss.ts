@@ -15,6 +15,14 @@ export interface OssConfig {
   endpoint?: string;
 }
 
+export function mediaObjectHeaders(contentType: string): Record<string, string> {
+  return {
+    'Content-Type': contentType,
+    'Cache-Control': 'private, no-store',
+    'x-oss-object-acl': 'private'
+  };
+}
+
 function hasBytes(bytes: Uint8Array, expected: number[], offset = 0): boolean {
   return expected.every((value, index) => bytes[offset + index] === value);
 }
@@ -68,7 +76,7 @@ export class OssMediaStore {
     if (!(await hasMatchingMediaSignature(file))) throw new Error('invalid_media_signature');
     const id = crypto.randomUUID();
     const bytes = Buffer.from(await file.arrayBuffer());
-    await this.client.put(id, bytes, { headers: { 'Content-Type': file.type, 'Cache-Control': 'public, max-age=31536000, immutable' } });
+    await this.client.put(id, bytes, { headers: mediaObjectHeaders(file.type) });
     return { id, url: `/api/v1/media/${id}`, kind, mimeType: file.type };
   }
 
@@ -80,6 +88,15 @@ export class OssMediaStore {
       const code = typeof error === 'object' && error !== null && 'code' in error ? String(error.code) : '';
       if (code === 'NoSuchKey' || code === 'NoSuchBucket') return null;
       throw error;
+    }
+  }
+
+  async makePrivate(id: string): Promise<void> {
+    try {
+      await this.client.putACL(id, 'private');
+    } catch (error: unknown) {
+      const code = typeof error === 'object' && error !== null && 'code' in error ? String(error.code) : '';
+      if (code !== 'NoSuchKey') throw error;
     }
   }
 

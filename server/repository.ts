@@ -78,7 +78,7 @@ export class PostgresContestRepository implements ContestRepository, ActivitySet
 
   async countActiveSubmissions(authorId: string, trackId: ContestTrackId): Promise<number> {
     const result = await this.pool.query<{ count: string }>(`SELECT COUNT(*)::text AS count FROM submissions
-      WHERE author_id = $1 AND track_id = $2 AND status <> 'hidden'`, [authorId, trackId]);
+      WHERE author_id = $1 AND track_id = $2`, [authorId, trackId]);
     return Number(result.rows[0]?.count ?? 0);
   }
 
@@ -99,30 +99,35 @@ export class PostgresContestRepository implements ContestRepository, ActivitySet
   async createSubmission(input: SubmissionInput): Promise<SubmissionRecord> {
     return withTransaction(this.pool, async (client) => {
       await client.query('SELECT pg_advisory_xact_lock(hashtext($1))', [`submission:${input.authorId}:${input.trackId}`]);
-      const count = await client.query<{ count: string }>(`SELECT COUNT(*)::text AS count FROM submissions WHERE author_id = $1 AND track_id = $2 AND status <> 'hidden'`, [input.authorId, input.trackId]);
+      const count = await client.query<{ count: string }>(`SELECT COUNT(*)::text AS count FROM submissions WHERE author_id = $1 AND track_id = $2`, [input.authorId, input.trackId]);
       if (Number(count.rows[0]?.count ?? 0) >= 1) throw new Error('submission_limit');
       const id = crypto.randomUUID();
       const createdAt = new Date().toISOString();
-      await client.query(`INSERT INTO submissions (id, track_id, author_id, author_name, author_avatar, title, character_name, description, media_json, status, created_at)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'pending', $10)`, [
-        id, input.trackId, input.authorId, input.authorName ?? '', input.authorAvatar ?? '', input.title,
-        input.characterName ?? '', input.description ?? '', JSON.stringify(input.mediaIds ?? []), createdAt
-      ]);
+      try {
+        await client.query(`INSERT INTO submissions (id, track_id, author_id, author_name, author_avatar, title, character_name, description, media_json, status, created_at)
+          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'pending', $10)`, [
+          id, input.trackId, input.authorId, input.authorName ?? '', input.authorAvatar ?? '', input.title,
+          input.characterName ?? '', input.description ?? '', JSON.stringify(input.mediaIds ?? []), createdAt
+        ]);
+      } catch (error: unknown) {
+        if (typeof error === 'object' && error !== null && 'code' in error && error.code === '23505') throw new Error('submission_limit');
+        throw error;
+      }
       return { ...input, id, status: 'pending', createdAt };
     });
   }
 
   async listApprovedWorks(trackId: ContestTrackId) {
     const result = await this.pool.query(`SELECT id, track_id AS "trackId", author_id AS "authorId", title, status,
-      (SELECT COUNT(*) FROM pairing_votes pv WHERE pv.work_a_id = s.id OR pv.work_b_id = s.id)::int AS "exposureCount",
+      (SELECT COUNT(*) FROM pairing_assignments pa WHERE pa.work_a_id = s.id OR pa.work_b_id = s.id)::int AS "exposureCount",
       (SELECT COUNT(*) FROM pairing_votes pv WHERE pv.winner_work_id = s.id)::int AS "pairingWins", created_at AS "createdAt"
       FROM submissions s WHERE track_id = $1 AND status = 'approved' ORDER BY "exposureCount", "pairingWins", created_at`, [trackId]);
     return result.rows;
   }
 
   async listComparedWorkIds(viewerId: string, trackId: ContestTrackId): Promise<string[]> {
-    const result = await this.pool.query<{ work_id: string }>(`SELECT work_a_id AS work_id FROM pairing_votes WHERE viewer_id = $1 AND track_id = $2
-      UNION SELECT work_b_id FROM pairing_votes WHERE viewer_id = $1 AND track_id = $2`, [viewerId, trackId]);
+    const result = await this.pool.query<{ work_id: string }>(`SELECT work_a_id AS work_id FROM pairing_assignments WHERE viewer_id = $1 AND track_id = $2
+      UNION SELECT work_b_id FROM pairing_assignments WHERE viewer_id = $1 AND track_id = $2`, [viewerId, trackId]);
     return result.rows.map((row) => row.work_id);
   }
 
@@ -181,6 +186,15 @@ export class PostgresContestRepository implements ContestRepository, ActivitySet
     await this.pool.query(`INSERT INTO media_objects (id, owner_id, kind, mime_type, byte_size, created_at) VALUES ($1, $2, $3, $4, $5, NOW())`, [media.id, ownerId, media.kind, media.mimeType, byteSize]);
   }
 
+  async isMediaPublic(id: string): Promise<boolean> {
+    const result = await this.pool.query<{ is_public: boolean }>(`SELECT EXISTS (
+      SELECT 1 FROM submissions s
+      WHERE s.media_json @> jsonb_build_array($1::text)
+        AND (s.status = 'approved' OR (s.status = 'finalist' AND s.is_displayed = TRUE))
+    ) AS is_public`, [id]);
+    return result.rows[0]?.is_public === true;
+  }
+
   async listPairingWorks(ids: [string, string]): Promise<PublicPairingWork[]> {
     const result = await this.pool.query<{ id: string; title: string; media_json: unknown }>(`SELECT id, title, media_json FROM submissions WHERE id = ANY($1::text[]) AND status = 'approved'`, [ids]);
     const media = await this.mediaById(result.rows.flatMap((row) => mediaIdsFrom(row.media_json)));
@@ -189,10 +203,10 @@ export class PostgresContestRepository implements ContestRepository, ActivitySet
   }
 
   async listGallery(trackId: ContestTrackId): Promise<PublicGalleryWork[]> {
-    const result = await this.pool.query<{ id: string; title: string; author_name: string; author_avatar: string; media_json: unknown; final_votes: string }>(`SELECT s.id, s.title, s.author_name, s.author_avatar, s.media_json,
-      (SELECT COUNT(*) FROM final_votes fv WHERE fv.work_id = s.id)::text AS final_votes
+    const result = await this.pool.query<{ id: string; title: string; author_name: string; author_avatar: string; media_json: unknown; final_votes: number }>(`SELECT s.id, s.title, s.author_name, s.author_avatar, s.media_json,
+      (SELECT COUNT(*) FROM final_votes fv WHERE fv.work_id = s.id)::int AS final_votes
       FROM submissions s WHERE s.track_id = $1 AND s.status = 'finalist' AND s.is_displayed = TRUE
-      ORDER BY final_votes::int DESC, s.created_at ASC`, [trackId]);
+      ORDER BY final_votes DESC, s.created_at ASC`, [trackId]);
     const media = await this.mediaById(result.rows.flatMap((row) => mediaIdsFrom(row.media_json)));
     return result.rows.map((row) => ({ id: row.id, title: row.title, authorName: row.author_name, authorAvatar: row.author_avatar, media: this.hydrateMedia(mediaIdsFrom(row.media_json), media), finalVotes: Number(row.final_votes) }));
   }
@@ -206,7 +220,7 @@ export class PostgresContestRepository implements ContestRepository, ActivitySet
     const result = await this.pool.query<{ id: string; track_id: ContestTrackId; title: string; author_name: string; author_avatar: string; media_json: unknown; final_votes: string; status: WorkStatus; is_displayed: boolean; pairing_wins: string; exposure_count: string; created_at: string }>(`SELECT s.id, s.track_id, s.title, s.author_name, s.author_avatar, s.media_json,
       (SELECT COUNT(*) FROM final_votes fv WHERE fv.work_id = s.id)::text AS final_votes, s.status, s.is_displayed,
       (SELECT COUNT(*) FROM pairing_votes pv WHERE pv.winner_work_id = s.id)::text AS pairing_wins,
-      (SELECT COUNT(*) FROM pairing_votes pv WHERE pv.work_a_id = s.id OR pv.work_b_id = s.id)::text AS exposure_count, s.created_at
+      (SELECT COUNT(*) FROM pairing_assignments pa WHERE pa.work_a_id = s.id OR pa.work_b_id = s.id)::text AS exposure_count, s.created_at
       FROM submissions s ORDER BY s.created_at DESC`);
     const media = await this.mediaById(result.rows.flatMap((row) => mediaIdsFrom(row.media_json)));
     return result.rows.map((row) => ({ id: row.id, title: row.title, authorName: row.author_name, authorAvatar: row.author_avatar, media: this.hydrateMedia(mediaIdsFrom(row.media_json), media), finalVotes: Number(row.final_votes), trackId: row.track_id, status: row.status, isDisplayed: row.is_displayed, pairingWins: Number(row.pairing_wins), exposureCount: Number(row.exposure_count), createdAt: row.created_at }));
