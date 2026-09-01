@@ -8,28 +8,12 @@ export const submissionLimitPerTrack = 1;
 
 export const trackDefinitions: TrackDefinition[] = [
   {
-    id: 'resonance-style',
-    title: '鸣潮·共鸣小剧场｜最佳画风奖',
-    acceptedMedia: ['image'],
-    minimumMediaCount: 4,
-    summary: '用 AI 四格漫画绘出鸣潮角色的万千日常。',
-    requirements: ['至少上传 1 组完整四格（4 张图片）', '填写角色名称与不少于 30 字剧情概述']
-  },
-  {
-    id: 'resonance-story',
-    title: '鸣潮·共鸣小剧场｜最佳剧情奖',
-    acceptedMedia: ['image'],
-    minimumMediaCount: 8,
-    summary: '用 AI 四格漫画讲出完整故事。',
-    requirements: ['至少上传 2 组完整四格（8 张图片）', '填写角色名称与不少于 50 字剧情梗概']
-  },
-  {
     id: 'wardrobe-design',
     title: '鸣潮·衣锦还裳｜最佳服装设计奖',
     acceptedMedia: ['image'],
     minimumMediaCount: 3,
     summary: '为拉海洛角色换上国风新装，展示完整设计细节。',
-    requirements: ['至少上传 3 张设计图（建议正面、背面、细节）', '填写角色名称与不少于 30 字设计理念']
+    requirements: ['至少上传 3 张设计图（建议正面、背面、细节）', '填写角色名称与不少于 30 字设计理念', '二创作品中，禁止出现丑化、拉踩角色等不当行为']
   },
   {
     id: 'wardrobe-video',
@@ -37,7 +21,7 @@ export const trackDefinitions: TrackDefinition[] = [
     acceptedMedia: ['video'],
     minimumMediaCount: 1,
     summary: '用 AI 视频工具完成一场国风走秀或角色展示。',
-    requirements: ['上传 1 个 10–60 秒 MP4/WebM 视频', '填写角色名称与不少于 30 字创作说明']
+    requirements: ['上传 1 个 10–60 秒 MP4/WebM 视频', '填写角色名称与不少于 30 字创作说明', '二创作品中，禁止出现丑化、拉踩角色等不当行为']
   }
 ];
 
@@ -47,8 +31,9 @@ export const defaultActivitySettings: ActivitySettings = {
   phase: defaultContestPhase,
   previewMode: false,
   schedule: {
-    submission: { label: '投稿阶段' },
-    pairing: { label: '盲选阶段' },
-    finalVote: { label: '投票阶段' }
+    submission: { label: '投稿阶段', startAt: '2026-09-01T00:00:00+08:00', endAt: '2026-10-08T23:59:59+08:00' },
+    pairing: { label: '盲选阶段', startAt: '2026-10-09T00:00:00+08:00', endAt: '2026-10-12T23:59:59+08:00' },
+    finalVote: { label: '公开投票阶段', startAt: '2026-10-13T00:00:00+08:00', endAt: '2026-10-18T23:59:59+08:00' },
+    results: { label: '结果公示阶段', startAt: '2026-10-19T00:00:00+08:00', endAt: '2026-10-21T23:59:59+08:00' }
   }
 };

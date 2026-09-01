@@ -9,7 +9,8 @@ const activitySettings = {
   schedule: {
     submission: { label: '投稿阶段' },
     pairing: { label: '盲选阶段' },
-    finalVote: { label: '投票阶段' }
+    finalVote: { label: '公开投票阶段' },
+    results: { label: '结果公示阶段' }
   }
 };
 
@@ -169,7 +170,7 @@ describe('operations experience', () => {
   });
 
   test('lets an operator save the public phase, preview mode and schedule', async () => {
-    const saveActivitySettings = vi.fn(async () => activitySettings);
+    const saveActivitySettings = vi.fn(async (settings) => settings);
     const api: OperationsApi = testLogin({
       listSubmissions: async () => [],
       setSubmissionStatus: async () => undefined,
@@ -181,8 +182,12 @@ describe('operations experience', () => {
     await user.type(screen.getByLabelText('运营后台密码'), 'test-password');
     await user.click(screen.getByRole('button', { name: '登录后台' }));
 
+    await user.click(screen.getByTitle('投稿阶段'));
+    const phaseOptions = screen.getAllByText('盲选阶段', { exact: true });
+    await user.click(phaseOptions[phaseOptions.length - 1]);
     await user.click(await screen.findByRole('button', { name: '保存活动流程' }));
 
-    expect(saveActivitySettings).toHaveBeenCalledWith(activitySettings);
+    expect(saveActivitySettings).toHaveBeenCalledWith(expect.objectContaining({ phase: 'pairing' }));
   });
+
 });

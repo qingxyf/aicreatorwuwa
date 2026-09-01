@@ -18,7 +18,8 @@ describe('public activity phase visibility', () => {
     const schedule = {
       submission: { label: '投稿阶段', startAt: '2026-09-01T00:00:00.000Z', endAt: '2026-09-10T00:00:00.000Z' },
       pairing: { label: '盲选阶段' },
-      finalVote: { label: '投票阶段' }
+      finalVote: { label: '公开投票阶段' },
+      results: { label: '结果公示阶段' }
     };
 
     expect(isActivityActionAllowed('submission', false, 'submission', schedule, Date.parse('2026-08-31T23:59:59.000Z'))).toBe(false);
@@ -30,7 +31,8 @@ describe('public activity phase visibility', () => {
     const schedule = {
       submission: { label: '投稿阶段', startAt: '2030-01-01T00:00:00.000Z' },
       pairing: { label: '盲选阶段' },
-      finalVote: { label: '投票阶段' }
+      finalVote: { label: '公开投票阶段' },
+      results: { label: '结果公示阶段' }
     };
 
     expect(isActivityActionAllowed('submission', true, 'submission', schedule, Date.parse('2026-09-05T00:00:00.000Z'))).toBe(true);

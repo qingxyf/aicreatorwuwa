@@ -53,15 +53,17 @@ const fallbackConfig: PublicContestConfig = {
   schedule: {
     submission: { ...defaultActivitySettings.schedule.submission },
     pairing: { ...defaultActivitySettings.schedule.pairing },
-    finalVote: { ...defaultActivitySettings.schedule.finalVote }
+    finalVote: { ...defaultActivitySettings.schedule.finalVote },
+    results: { ...defaultActivitySettings.schedule.results }
   },
   tracks: trackDefinitions
 };
 
-const stageOrder: Array<{ phase: Exclude<ContestPhase, 'closed'>; scheduleKey: 'submission' | 'pairing' | 'finalVote'; number: string }> = [
+const stageOrder: Array<{ phase?: Exclude<ContestPhase, 'closed'>; scheduleKey: keyof PublicContestConfig['schedule']; number: string }> = [
   { phase: 'submission', scheduleKey: 'submission', number: '01' },
   { phase: 'pairing', scheduleKey: 'pairing', number: '02' },
-  { phase: 'final-vote', scheduleKey: 'finalVote', number: '03' }
+  { phase: 'final-vote', scheduleKey: 'finalVote', number: '03' },
+  { scheduleKey: 'results', number: '04' }
 ];
 
 const localDemoData = createDemoPreviewData(import.meta.env.BASE_URL);
@@ -81,7 +83,7 @@ function currentArtUrl() {
   return `${import.meta.env.BASE_URL}assets/rainy-wuwa-hero.png`;
 }
 
-function characterArtUrl(filename: string) {
+function assetUrl(filename: string) {
   return `${import.meta.env.BASE_URL}assets/${filename}`;
 }
 
@@ -191,8 +193,8 @@ async function validateVideoDuration(file: File): Promise<boolean> {
 function CharacterDuo() {
   return (
     <div aria-hidden="true" className="character-duo">
-      <img className="character-companion character-companion-blonde" decoding="async" loading="lazy" src={characterArtUrl('blonde-character-soft-smile.png')} alt="" />
-      <img className="character-companion character-companion-grey" decoding="async" loading="lazy" src={characterArtUrl('grey-character-soft-smile.png')} alt="" />
+      <img className="character-companion character-companion-blonde" decoding="async" loading="lazy" src={assetUrl('blonde-character-soft-smile.png')} alt="" />
+      <img className="character-companion character-companion-grey" decoding="async" loading="lazy" src={assetUrl('grey-character-soft-smile.png')} alt="" />
     </div>
   );
 }
@@ -215,29 +217,47 @@ function GalleryCard({ work, voted, onVote, motionDelay }: { work: PublicGallery
 function CompleteRules({ config }: { config: PublicContestConfig }) {
   return (
     <div className="complete-rules">
-      <section><h3>活动与赛道</h3><p>活动包含四个独立赛道：「共鸣小剧场」分为最佳画风奖、最佳剧情奖；「衣锦还裳」分为最佳服装设计奖、最佳走秀视频奖。每个账号每个赛道最多提交 1 件作品，四个赛道可同时参与。</p></section>
-      <section><h3>三阶段与时间</h3><ul>{stageOrder.map((stage) => <li key={stage.phase}><strong>{config.schedule[stage.scheduleKey].label}</strong><span>{formatSchedule(config.schedule[stage.scheduleKey].startAt, config.schedule[stage.scheduleKey].endAt)}</span></li>)}</ul><p>以活动页公示的阶段与北京时间为准；未设置日期时，请等待运营发布。</p></section>
-      <section><h3>投稿与内容规范</h3><p>作品须为原创 AI 二创内容，符合 B 站社区规范，不得盗用、搬运、发布 NSFW 或其他违规内容。允许适度调色、排版、剪辑及配乐，但参赛者须确保自己拥有投稿、展示所需的权利。</p><p>四个赛道分别按页面所列图片数量或视频时长要求投稿。投稿后先进入待审核状态，只有运营审核通过的作品才会进入盲选池或公开展示。系统会校验文件类型、大小与实际文件签名。</p></section>
-      <section><h3>投票规则</h3><p>盲选阶段，每个账号每赛道 3 票，每次从两件作品中选 1 件，系统以作品曝光均衡为目标派发对比。投票阶段，入围作品会展示作者昵称、头像和票数；每个账号每赛道每天 3 票，同一作品当天不得重复投票。</p></section>
+      <section><h3>活动与赛道</h3><p>本期活动为「衣锦还裳」拉海洛国风换装秀，设最佳服装设计奖与最佳走秀视频奖两个独立赛道。每个账号每个赛道最多提交 1 件作品，两个赛道可同时参与。</p></section>
+      <section><h3>活动时间安排</h3><ul>{stageOrder.map((stage) => <li key={stage.scheduleKey}><strong>{config.schedule[stage.scheduleKey].label}</strong><span>{formatSchedule(config.schedule[stage.scheduleKey].startAt, config.schedule[stage.scheduleKey].endAt)}</span></li>)}</ul><p>以活动页公示的阶段与北京时间为准；未设置日期时，请等待运营发布。</p></section>
+      <section><h3>投稿与内容规范</h3><p>作品须为原创 AI 二创内容，符合 B 站社区规范，不得盗用、搬运、发布 NSFW 或其他违规内容。二创作品中，禁止出现丑化、拉踩角色等不当行为。允许适度调色、排版、剪辑及配乐，但参赛者须确保自己拥有投稿、展示所需的权利。</p><p>两个赛道分别按页面所列图片数量或视频时长要求投稿。投稿后先进入待审核状态，只有运营审核通过的作品才会进入盲选池或公开展示。系统会校验文件类型、大小与实际文件签名。</p></section>
+      <section><h3>投票规则</h3><p>盲选阶段，每个账号每赛道 3 票，每次从两件作品中选 1 件，系统以作品曝光均衡为目标派发对比。公开投票阶段，入围作品会展示作者昵称、头像和票数；每个账号每赛道每天 3 票，同一作品当天不得重复投票。</p></section>
       <section><h3>禁止刷票与破坏服务</h3><p>禁止使用脚本、外挂、批量账号、自动化请求、漏洞利用、伪造身份、篡改请求或其他非正当方式影响投稿、曝光或票数。禁止扫描、攻击、干扰、压测、破坏服务器、存储、数据库及其他活动服务。违反者将被取消资格、撤销票数或作品展示；情节严重的，主办方将保留追究责任的权利。</p></section>
       <section><h3>责任与处理说明</h3><p>参赛即表示同意主办方在活动展示、评审与公示范围内展示作品、昵称和头像。主办方可对违规、疑似侵权、异常投票或技术风险作品进行审核、隐藏、取消资格或调整展示；在法律允许范围内，活动解释、风控与处理决定以主办方最终公示为准。</p></section>
     </div>
   );
 }
 
-function ActivityRewards() {
-  const rewardSlots = [
-    { index: '01', title: '奖励信息即将公布', copy: '奖项名称与评选细则将在活动正式公告中更新。' },
-    { index: '02', title: '奖励内容待揭晓', copy: '具体奖品、数量及发放方式以后续公告为准。' },
-    { index: '03', title: '每一份创作都值得被看见', copy: '作品展示、入围与奖励资格以运营审核及最终公示为准。' }
-  ];
+const announcedRewards = [
+  {
+    place: '一等奖',
+    title: '一等奖：小电视行李包 × 1',
+    copy: '获奖者 1 名。奖品以活动最终公示与实际发放为准。',
+    images: [{ alt: '一等奖奖品：小电视行李包', filename: 'prize-first-luggage.png' }]
+  },
+  {
+    place: '二等奖',
+    title: '二等奖：2233毛绒毯 × 1',
+    copy: '获奖者 1 名。奖品以活动最终公示与实际发放为准。',
+    images: [{ alt: '二等奖奖品：2233毛绒毯', filename: 'prize-second-blanket.jpg' }]
+  },
+  {
+    place: '三等奖',
+    title: '三等奖：小电视钥匙包 × 8',
+    copy: '获奖者 8 名；两款样式随机发放，不支持指定款式。',
+    images: [
+      { alt: '三等奖奖品：小电视钥匙包款式一', filename: 'prize-third-key-pouch-a.png' },
+      { alt: '三等奖奖品：小电视钥匙包款式二', filename: 'prize-third-key-pouch-b.png' }
+    ]
+  }
+] as const;
 
+function ActivityRewards() {
   return (
     <section className="content-section rewards-section" data-motion-reveal="" id="rewards">
-      <div className="section-heading"><p>活动回馈</p><h2>把灵感，留在这场雨里</h2></div>
-      <p className="rewards-intro">本活动奖励正在筹备中，奖品信息会在后续公告中统一公布。</p>
+      <div className="section-heading"><p>活动奖品</p><h2>把灵感，留在这场雨里</h2></div>
+      <p className="rewards-intro">奖品将按活动评选结果发放；获奖名单、收件方式和发放时间以主办方后续公示为准。</p>
       <div className="rewards-grid">
-        {rewardSlots.map((slot, index) => <article data-motion-delay={String(index * 80)} data-motion-reveal="" key={slot.index} className="reward-slot"><span>{slot.index}</span><h3>{slot.title}</h3><p>{slot.copy}</p></article>)}
+        {announcedRewards.map((reward, index) => <article data-motion-delay={String(index * 80)} data-motion-reveal="" key={reward.place} className="reward-slot"><span>{reward.place}</span><div className={reward.images.length === 1 ? 'reward-media' : 'reward-media reward-media-dual'}>{reward.images.map((image) => <img alt={image.alt} key={image.filename} loading="lazy" src={assetUrl(image.filename)} />)}</div><h3>{reward.title}</h3><p>{reward.copy}</p>{reward.place === '三等奖' ? <small>两款样式随机发放</small> : null}</article>)}
       </div>
     </section>
   );
@@ -255,8 +275,8 @@ export function App({ api }: AppProps) {
   const [configLoadFailed, setConfigLoadFailed] = useState(false);
   const [configPending, setConfigPending] = useState(true);
   const [localPreview, setLocalPreview] = useState(false);
-  const [activeTrackId, setActiveTrackId] = useState<ContestTrackId>('resonance-style');
-  const [submissionTrackId, setSubmissionTrackId] = useState<ContestTrackId>('resonance-style');
+  const [activeTrackId, setActiveTrackId] = useState<ContestTrackId>('wardrobe-design');
+  const [submissionTrackId, setSubmissionTrackId] = useState<ContestTrackId>('wardrobe-design');
   const [gallery, setGallery] = useState<PublicGalleryWork[]>([]);
   const [pair, setPair] = useState<PublicPairingWork[]>([]);
   const [pairingAssignmentId, setPairingAssignmentId] = useState<string>();
@@ -283,13 +303,13 @@ export function App({ api }: AppProps) {
     let live = true;
     withTimeout(client.loadConfig(), CONFIG_LOAD_TIMEOUT_MS).then((nextConfig) => {
       if (!live) return;
-      setConfig(nextConfig);
+      setConfig({ ...nextConfig, schedule: { ...fallbackConfig.schedule, ...nextConfig.schedule }, tracks: trackDefinitions });
       setLocalPreview(false);
       setConfigReady(true);
       setConfigPending(false);
       setConfigLoadFailed(false);
-      setActiveTrackId((current) => nextConfig.tracks.some((track) => track.id === current) ? current : nextConfig.tracks[0]?.id ?? 'resonance-style');
-      setSubmissionTrackId((current) => nextConfig.tracks.some((track) => track.id === current) ? current : nextConfig.tracks[0]?.id ?? 'resonance-style');
+      setActiveTrackId((current) => trackDefinitions.some((track) => track.id === current) ? current : trackDefinitions[0]?.id ?? 'wardrobe-design');
+      setSubmissionTrackId((current) => trackDefinitions.some((track) => track.id === current) ? current : trackDefinitions[0]?.id ?? 'wardrobe-design');
     }).catch(() => {
       if (!live) return;
       if (canUseDemoPreview(import.meta.env)) {
@@ -403,6 +423,12 @@ export function App({ api }: AppProps) {
     try {
       if (localPreview) {
         const nextPair = localDemoData.pairingByTrack[activeTrack.id];
+        if (!nextPair) {
+          setPair([]);
+          setPairingAssignmentId(undefined);
+          setVoteNotice('本赛道暂时没有足够作品可供二选一，请稍后再来。');
+          return;
+        }
         setPair(nextPair.works);
         setPairingAssignmentId(nextPair.assignmentId);
         return;
@@ -479,13 +505,13 @@ export function App({ api }: AppProps) {
         <section className="hero" id="rules">
           <header className="site-header"><a className="brand" href="#rules" aria-label="返回活动首页"><i />鸣潮 · AI 二创主题征集</a><nav aria-label="活动导航"><a href="#rules" onClick={(event) => { event.preventDefault(); setRulesOpen(true); }}>活动规则</a>{showSubmission ? <a href="#submit" onClick={(event) => { event.preventDefault(); openSubmission(); }}>我要投稿</a> : null}{showPairing || showFinalVote ? <a href="#vote">参与投票</a> : null}</nav></header>
           <div className="hero-ink" />
-          <div className="hero-content"><div className="hero-kicker"><strong>鸣潮小站 × AI 创作小站联合举办</strong><span>Bilibili Toy 小站活动</span></div><h1>雨落拉海洛，<br />共鸣成新章。</h1><p className="hero-themes"><strong>共鸣小剧场</strong> · AI 四格漫画创作赛 <i>×</i> <strong>衣锦还裳</strong> · 拉海洛国风换装秀</p><p className="hero-date">{configLoadFailed ? '活动配置暂不可用，当前保留测试入口；投稿仍会提交到后台' : configPending ? '正在同步活动阶段；投稿与投票入口已开启' : <>当前开放：{config.phase === 'closed' ? '活动已结束' : stageOrder.find((stage) => stage.phase === config.phase)?.scheduleKey ? config.schedule[stageOrder.find((stage) => stage.phase === config.phase)!.scheduleKey].label : '活动状态待发布'} · {config.previewMode ? '运营预览模式：全阶段展示' : '仅展示当前活动阶段'}</>}</p><div className="hero-actions">{heroAction}<Button onClick={() => setRulesOpen(true)} size="large">查看完整规则 <ArrowRightOutlined /></Button></div></div>
+          <div className="hero-content"><div className="hero-kicker"><strong>鸣潮小站 × AI 创作小站联合举办</strong><span>Bilibili Toy 小站活动</span></div><h1>衣锦还裳，<br />拉海洛新韵。</h1><p className="hero-themes"><strong>衣锦还裳</strong> · 拉海洛国风换装秀</p><p className="hero-date">{configLoadFailed ? '活动配置暂不可用，当前保留测试入口；投稿仍会提交到后台' : configPending ? '正在同步活动阶段；投稿与投票入口已开启' : <>当前开放：{config.phase === 'closed' ? '活动已结束' : stageOrder.find((stage) => stage.phase === config.phase)?.scheduleKey ? config.schedule[stageOrder.find((stage) => stage.phase === config.phase)!.scheduleKey].label : '活动状态待发布'} · {config.previewMode ? '运营预览模式：全阶段展示' : '仅展示当前活动阶段'}</>}</p><div className="hero-actions">{heroAction}<Button onClick={() => setRulesOpen(true)} size="large">查看完整规则 <ArrowRightOutlined /></Button></div></div>
           <img className="hero-art" src={currentArtUrl()} alt="雨巷中的国风角色插画" />
           <div aria-hidden="true" className="hero-bottom-fade" />
-          <div aria-label="活动周期" className="hero-stage" data-motion-reveal="">{stageOrder.map((stage) => { const item = config.schedule[stage.scheduleKey]; const active = config.phase === stage.phase; return <span className={active ? 'active-stage' : ''} key={stage.phase}><b>{stage.number}</b><i><strong>{item.label}</strong><small>{formatSchedule(item.startAt, item.endAt)}</small></i></span>; })}</div>
+          <div aria-label="活动周期" className="hero-stage" data-motion-reveal="">{stageOrder.map((stage) => { const item = config.schedule[stage.scheduleKey]; const active = stage.phase ? config.phase === stage.phase : false; return <span className={active ? 'active-stage' : ''} key={stage.scheduleKey}><b>{stage.number}</b><i><strong>{item.label}</strong><small>{formatSchedule(item.startAt, item.endAt)}</small></i></span>; })}</div>
         </section>
 
-        <section className="content-section rules-section" data-motion-reveal=""><div className="section-heading"><p>参与之前</p><h2>选择赛道，再开始创作</h2></div><TrackTabs activeTrackId={activeTrack.id} onChange={selectTrack} tracks={config.tracks} /><RulePanel track={activeTrack} /><div className="vote-rules"><article data-motion-delay="80" data-motion-reveal=""><span>盲选阶段</span><h3>每个赛道 3 票</h3><p>每次从两件作品中选 1 件。系统优先安排曝光较少的作品，让每件作品获得更均衡的展示机会。</p></article><article data-motion-delay="160" data-motion-reveal=""><span>投票阶段</span><h3>每赛道每日 3 票</h3><p>入围作品公开展示作者头像、昵称与实时票数；同一作品当天只能投一次。</p></article></div><CharacterDuo /></section>
+        <section className="content-section rules-section" data-motion-reveal=""><div className="section-heading"><p>参与之前</p><h2>选择赛道，再开始创作</h2></div><TrackTabs activeTrackId={activeTrack.id} onChange={selectTrack} tracks={config.tracks} /><RulePanel track={activeTrack} /><div className="vote-rules"><article data-motion-delay="80" data-motion-reveal=""><span>盲选阶段</span><h3>每个赛道 3 票</h3><p>每次从两件作品中选 1 件。系统优先安排曝光较少的作品，让每件作品获得更均衡的展示机会。</p></article><article data-motion-delay="160" data-motion-reveal=""><span>公开投票阶段</span><h3>每赛道每日 3 票</h3><p>入围作品公开展示作者头像、昵称与实时票数；同一作品当天只能投一次。</p></article></div><CharacterDuo /></section>
 
         {showSubmission ? <section className="content-section participation-section" data-motion-reveal="" id="submit"><div className="section-heading"><p>{config.schedule.submission.label}</p><h2>把你的灵感留在这场雨里</h2></div><Card className="submit-callout" data-motion-reveal="" variant="borderless"><div><h3>投稿时间</h3><p>{formatSchedule(config.schedule.submission.startAt, config.schedule.submission.endAt)}。选择赛道后上传图片或视频，审核通过后会进入后续活动阶段。</p></div><Button icon={<CloudUploadOutlined />} onClick={() => openSubmission()} type="primary">填写投稿信息</Button></Card></section> : null}
 

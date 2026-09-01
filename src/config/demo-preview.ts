@@ -5,9 +5,10 @@ export const demoPreviewConfig: PublicContestConfig = {
   phase: 'submission',
   previewMode: true,
   schedule: {
-    submission: { label: '投稿阶段', startAt: '2026-08-20T00:00:00+08:00', endAt: '2026-09-02T23:59:59+08:00' },
-    pairing: { label: '盲选阶段', startAt: '2026-09-03T00:00:00+08:00', endAt: '2026-09-09T23:59:59+08:00' },
-    finalVote: { label: '投票阶段', startAt: '2026-09-10T00:00:00+08:00', endAt: '2026-09-16T23:59:59+08:00' }
+    submission: { label: '投稿阶段', startAt: '2026-09-01T00:00:00+08:00', endAt: '2026-10-08T23:59:59+08:00' },
+    pairing: { label: '盲选阶段', startAt: '2026-10-09T00:00:00+08:00', endAt: '2026-10-12T23:59:59+08:00' },
+    finalVote: { label: '公开投票阶段', startAt: '2026-10-13T00:00:00+08:00', endAt: '2026-10-18T23:59:59+08:00' },
+    results: { label: '结果公示阶段', startAt: '2026-10-19T00:00:00+08:00', endAt: '2026-10-21T23:59:59+08:00' }
   },
   tracks: trackDefinitions
 };
@@ -24,8 +25,8 @@ function demoImage(baseUrl: string, id: string, filename: string, authorName: st
 }
 
 export interface DemoPreviewData {
-  pairingByTrack: Record<ContestTrackId, PairingOffer>;
-  galleryByTrack: Record<ContestTrackId, PublicGalleryWork[]>;
+  pairingByTrack: Partial<Record<ContestTrackId, PairingOffer>>;
+  galleryByTrack: Partial<Record<ContestTrackId, PublicGalleryWork[]>>;
 }
 
 export function createDemoPreviewData(baseUrl: string): DemoPreviewData {
@@ -37,14 +38,10 @@ export function createDemoPreviewData(baseUrl: string): DemoPreviewData {
 
   return {
     pairingByTrack: {
-      'resonance-style': { assignmentId: 'demo-pair-resonance-style', works: [pairMedia(rain), pairMedia(grey)] },
-      'resonance-story': { assignmentId: 'demo-pair-resonance-story', works: [pairMedia(grey), pairMedia(silk)] },
       'wardrobe-design': { assignmentId: 'demo-pair-wardrobe-design', works: [pairMedia(silk), pairMedia(rain)] },
       'wardrobe-video': { assignmentId: 'demo-pair-wardrobe-video', works: [pairMedia(rain), pairMedia(silk)] }
     },
     galleryByTrack: {
-      'resonance-style': [rain, grey, silk],
-      'resonance-story': [grey, silk, rain],
       'wardrobe-design': [silk, rain, grey],
       'wardrobe-video': [rain, silk, grey]
     }

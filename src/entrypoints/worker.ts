@@ -95,7 +95,8 @@ function activitySettingsFromPayload(payload: ActivitySettingsPayload): Activity
   const schedule = {
     submission: { label: defaultActivitySettings.schedule.submission.label, startAt: normalizedTimestamp(payload.schedule.submission?.startAt), endAt: normalizedTimestamp(payload.schedule.submission?.endAt) },
     pairing: { label: defaultActivitySettings.schedule.pairing.label, startAt: normalizedTimestamp(payload.schedule.pairing?.startAt), endAt: normalizedTimestamp(payload.schedule.pairing?.endAt) },
-    finalVote: { label: defaultActivitySettings.schedule.finalVote.label, startAt: normalizedTimestamp(payload.schedule.finalVote?.startAt), endAt: normalizedTimestamp(payload.schedule.finalVote?.endAt) }
+    finalVote: { label: defaultActivitySettings.schedule.finalVote.label, startAt: normalizedTimestamp(payload.schedule.finalVote?.startAt), endAt: normalizedTimestamp(payload.schedule.finalVote?.endAt) },
+    results: { label: defaultActivitySettings.schedule.results.label, startAt: normalizedTimestamp(payload.schedule.results?.startAt), endAt: normalizedTimestamp(payload.schedule.results?.endAt) }
   };
   for (const stage of Object.values(schedule)) {
     if (stage.startAt && stage.endAt && Date.parse(stage.startAt) > Date.parse(stage.endAt)) throw new Error('invalid_activity_settings');
@@ -124,7 +125,7 @@ async function viewerWithRateLimit(request: Request, bindings: WorkerBindings, r
 
 async function assertActivityPhase(request: Request, bindings: WorkerBindings, phase: PublicActivityPhase): Promise<void> {
   const settings = await repositoryForRequest(request, bindings).getActivitySettings();
-  if (!isActivityActionAllowed(settings.phase, settings.previewMode, phase)) throw new Error('activity_phase_inactive');
+  if (!isActivityActionAllowed(settings.phase, settings.previewMode, phase, settings.schedule)) throw new Error('activity_phase_inactive');
 }
 
 async function operatorContext(request: Request, bindings: WorkerBindings) {

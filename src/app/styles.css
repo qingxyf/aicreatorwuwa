@@ -372,8 +372,13 @@ button, input, textarea { font: inherit; }
 .reward-slot::after { border: 1px solid rgba(255, 241, 210, .07); content: ""; inset: 8px; pointer-events: none; position: absolute; }
 .reward-slot > * { position: relative; z-index: 1; }
 .reward-slot > span { color: #e1ad59; font-family: Georgia, serif; font-size: 15px; }
-.reward-slot h3 { color: #fff1d7; font-size: 20px; line-height: 1.45; margin: 25px 0 10px; }
+.reward-media { align-items: center; aspect-ratio: 4 / 2.35; background: linear-gradient(135deg, rgba(255,247,233,.97), rgba(225,211,191,.91)); display: grid; justify-items: center; margin: 15px 0 0; overflow: hidden; }
+.reward-media img { display: block; height: 100%; object-fit: contain; padding: 8px; width: 100%; }
+.reward-media-dual { gap: 1px; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.reward-media-dual img { min-width: 0; padding: 6px; }
+.reward-slot h3 { color: #fff1d7; font-size: 20px; line-height: 1.45; margin: 18px 0 10px; }
 .reward-slot p { color: rgba(245, 237, 223, .58); font-family: "PingFang SC", "Microsoft YaHei", sans-serif; font-size: 13px; line-height: 1.75; margin: 0; }
+.reward-slot small { color: #e6bc72; display: block; font-family: "PingFang SC", "Microsoft YaHei", sans-serif; font-size: 12px; margin-top: 10px; }
 
 footer { border-top: 1px solid rgba(232,208,160,.13); color: rgba(247,240,229,.42); font-family: "PingFang SC", "Microsoft YaHei", sans-serif; font-size: 12px; letter-spacing: .04em; margin: 0 auto; max-width: 1108px; padding: 28px 0 42px; text-align: center; }
 
@@ -508,6 +513,7 @@ footer { border-top: 1px solid rgba(232,208,160,.13); color: rgba(247,240,229,.4
   .rewards-section { padding-top: 58px; }
   .rewards-grid { grid-template-columns: 1fr; }
   .reward-slot { min-height: 0; padding: 22px 20px 19px; }
+  .reward-media { margin-top: 13px; }
   .reward-slot h3 { margin-top: 18px; }
   footer { margin: 0 20px; }
   .ops-shell { padding: 30px 16px; }

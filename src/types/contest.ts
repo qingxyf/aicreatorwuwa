@@ -90,6 +90,7 @@ export interface PublicContestSchedule {
   submission: ActivityStageSchedule;
   pairing: ActivityStageSchedule;
   finalVote: ActivityStageSchedule;
+  results: ActivityStageSchedule;
 }
 
 export interface ActivitySettings {

@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { Alert, Avatar, Button, Card, ConfigProvider, Empty, Input, Select, Statistic, Switch, Table, Tag } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import { PublicActivityClient, type OperationsHttpClient } from '../adapters/http/public-activity-client';
+import { defaultActivitySettings } from '../config/activity';
 import type { ActivitySettings, ContestWorkStatus, OperatorSubmission } from '../types/contest';
 import './styles.css';
 
@@ -22,9 +23,16 @@ const statusLabel: Record<ContestWorkStatus, string> = {
 const phaseOptions = [
   { value: 'submission', label: '投稿阶段' },
   { value: 'pairing', label: '盲选阶段' },
-  { value: 'final-vote', label: '投票阶段' },
+  { value: 'final-vote', label: '公开投票阶段' },
   { value: 'closed', label: '已结束' }
 ];
+
+const schedulePlaceholders: Record<keyof ActivitySettings['schedule'], { startAt: string; endAt: string }> = {
+  submission: { startAt: '2026-09-01T00:00:00+08:00', endAt: '2026-10-08T23:59:59+08:00' },
+  pairing: { startAt: '2026-10-09T00:00:00+08:00', endAt: '2026-10-12T23:59:59+08:00' },
+  finalVote: { startAt: '2026-10-13T00:00:00+08:00', endAt: '2026-10-18T23:59:59+08:00' },
+  results: { startAt: '2026-10-19T00:00:00+08:00', endAt: '2026-10-21T23:59:59+08:00' }
+};
 
 function StatusControl({ item, onChange }: { item: OperatorSubmission; onChange: (status: ContestWorkStatus) => void }) {
   return <Select aria-label={`${item.title}的展示状态`} onChange={onChange} options={Object.entries(statusLabel).map(([value, label]) => ({ value, label }))} size="small" value={item.status} />;
@@ -78,7 +86,7 @@ export function OpsApp({ api }: OpsAppProps) {
       await client.loginOperations(password);
       const [records, activitySettings] = await Promise.all([client.listSubmissions(), client.getActivitySettings()]);
       setSubmissions(records);
-      setSettings(activitySettings);
+      setSettings({ ...activitySettings, schedule: { ...defaultActivitySettings.schedule, ...activitySettings.schedule } });
       setAuthorized(true);
       setPassword('');
     } catch (reason: unknown) {
@@ -143,7 +151,7 @@ export function OpsApp({ api }: OpsAppProps) {
         {!authorized ? <Card className="ops-login-card" title="后台密码登录"><p>请输入运营后台密码。该密码只用于审核作品和活动设置，不影响公开页面的投稿与投票。</p><Input.Password aria-label="运营后台密码" onChange={(event) => setPassword(event.target.value)} onPressEnter={() => void enterOperations()} placeholder="输入运营后台密码" value={password} /><Button className="ops-login-button" loading={loading} onClick={() => void enterOperations()} type="primary">登录后台</Button></Card> : null}
         {authorized ? <>
           {settings ? <Card className="ops-settings" title="活动流程与对外时间"><div className="ops-settings-controls"><label>当前公开阶段<Select aria-label="当前公开阶段" onChange={(phase) => setSettings((current) => current ? { ...current, phase } : current)} options={phaseOptions} value={settings.phase} /></label><label className="preview-switch">测试预览<Switch aria-label="测试预览" checked={settings.previewMode} onChange={(previewMode) => setSettings((current) => current ? { ...current, previewMode } : current)} /><small>开启后，公开端同时显示投稿、盲选和投票流程。</small></label></div>
-            <div className="ops-schedule-grid">{(Object.keys(settings.schedule) as Array<keyof ActivitySettings['schedule']>).map((stage) => <div key={stage}><strong>{settings.schedule[stage].label}</strong><Input aria-label={`${settings.schedule[stage].label}开始时间`} onChange={(event) => updateSchedule(stage, 'startAt', event.target.value)} placeholder="2026-08-20T00:00:00+08:00" value={stageTimestamp(settings, stage, 'startAt')} /><Input aria-label={`${settings.schedule[stage].label}结束时间`} onChange={(event) => updateSchedule(stage, 'endAt', event.target.value)} placeholder="2026-09-02T23:59:59+08:00" value={stageTimestamp(settings, stage, 'endAt')} /></div>)}</div>
+            <div className="ops-schedule-grid">{(Object.keys(settings.schedule) as Array<keyof ActivitySettings['schedule']>).map((stage) => <div key={stage}><strong>{settings.schedule[stage].label}</strong><Input aria-label={`${settings.schedule[stage].label}开始时间`} onChange={(event) => updateSchedule(stage, 'startAt', event.target.value)} placeholder={schedulePlaceholders[stage].startAt} value={stageTimestamp(settings, stage, 'startAt')} /><Input aria-label={`${settings.schedule[stage].label}结束时间`} onChange={(event) => updateSchedule(stage, 'endAt', event.target.value)} placeholder={schedulePlaceholders[stage].endAt} value={stageTimestamp(settings, stage, 'endAt')} /></div>)}</div>
             <Button loading={saving} onClick={() => void saveActivitySettings()} type="primary">保存活动流程</Button></Card> : null}
           <section className="ops-stats"><Statistic title="提交总数" value={submissions.length} /><Statistic title="待审核" value={submissions.filter((item) => item.status === 'pending').length} /><Statistic title="已入围" value={submissions.filter((item) => item.status === 'finalist').length} /></section>
           {submissions.length ? <Table columns={columns} dataSource={submissions} pagination={{ pageSize: 10 }} rowKey="id" scroll={{ x: 760 }} /> : <Empty description="暂时没有投稿记录" />}

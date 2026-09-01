@@ -83,7 +83,8 @@ function activitySettingsFromPayload(payload: ActivitySettingsPayload): Activity
   const schedule = {
     submission: { label: defaultActivitySettings.schedule.submission.label, startAt: normalizedTimestamp(payload.schedule.submission?.startAt), endAt: normalizedTimestamp(payload.schedule.submission?.endAt) },
     pairing: { label: defaultActivitySettings.schedule.pairing.label, startAt: normalizedTimestamp(payload.schedule.pairing?.startAt), endAt: normalizedTimestamp(payload.schedule.pairing?.endAt) },
-    finalVote: { label: defaultActivitySettings.schedule.finalVote.label, startAt: normalizedTimestamp(payload.schedule.finalVote?.startAt), endAt: normalizedTimestamp(payload.schedule.finalVote?.endAt) }
+    finalVote: { label: defaultActivitySettings.schedule.finalVote.label, startAt: normalizedTimestamp(payload.schedule.finalVote?.startAt), endAt: normalizedTimestamp(payload.schedule.finalVote?.endAt) },
+    results: { label: defaultActivitySettings.schedule.results.label, startAt: normalizedTimestamp(payload.schedule.results?.startAt), endAt: normalizedTimestamp(payload.schedule.results?.endAt) }
   };
   for (const stage of Object.values(schedule)) if (stage.startAt && stage.endAt && Date.parse(stage.startAt) > Date.parse(stage.endAt)) throw new Error('invalid_activity_settings');
   return { phase: payload.phase, previewMode: payload.previewMode, schedule };

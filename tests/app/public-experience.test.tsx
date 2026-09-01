@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, test, vi } from 'vitest';
 import { App, type PublicActivityApi } from '../../src/app/App';
@@ -11,9 +11,10 @@ function createApi(configOverrides: Partial<Awaited<ReturnType<PublicActivityApi
       phase: 'final-vote',
       previewMode: false,
       schedule: {
-        submission: { label: '投稿阶段', startAt: '2026-08-20T00:00:00+08:00', endAt: '2026-09-02T23:59:59+08:00' },
-        pairing: { label: '盲选阶段', startAt: '2026-09-03T00:00:00+08:00', endAt: '2026-09-09T23:59:59+08:00' },
-        finalVote: { label: '投票阶段', startAt: '2026-09-10T00:00:00+08:00', endAt: '2026-09-16T23:59:59+08:00' }
+        submission: { label: '投稿阶段', startAt: '2026-09-01T00:00:00+08:00', endAt: '2026-10-08T23:59:59+08:00' },
+        pairing: { label: '盲选阶段', startAt: '2026-10-09T00:00:00+08:00', endAt: '2026-10-12T23:59:59+08:00' },
+        finalVote: { label: '公开投票阶段', startAt: '2026-10-13T00:00:00+08:00', endAt: '2026-10-18T23:59:59+08:00' },
+        results: { label: '结果公示阶段', startAt: '2026-10-19T00:00:00+08:00', endAt: '2026-10-21T23:59:59+08:00' }
       },
       ...configOverrides,
       tracks: configOverrides.tracks ?? [
@@ -71,6 +72,31 @@ function createApi(configOverrides: Partial<Awaited<ReturnType<PublicActivityApi
 }
 
 describe('public activity experience', () => {
+  test('keeps the comic tracks closed even when an older config response still includes them', async () => {
+    const user = userEvent.setup();
+    render(<App api={createApi({ phase: 'submission' })} />);
+
+    await waitFor(() => expect(screen.queryAllByText(/共鸣小剧场/)).toHaveLength(0));
+    expect(screen.getByText(/拉海洛国风换装秀/)).toBeVisible();
+
+    await user.click(screen.getByRole('link', { name: '我要投稿' }));
+    const submissionDrawer = screen.getByRole('dialog', { name: '提交你的作品' });
+    expect(within(submissionDrawer).getAllByRole('radio').map((radio) => radio.getAttribute('value'))).toEqual(['wardrobe-design', 'wardrobe-video']);
+  });
+
+  test('shows the announced prizes and both random third-prize styles', async () => {
+    render(<App api={createApi()} />);
+
+    expect(await screen.findByText('一等奖：小电视行李包 × 1')).toBeVisible();
+    expect(screen.getByText('二等奖：2233毛绒毯 × 1')).toBeVisible();
+    expect(screen.getByText('三等奖：小电视钥匙包 × 8')).toBeVisible();
+    expect(screen.getByText('两款样式随机发放')).toBeVisible();
+    expect(screen.getByRole('img', { name: '一等奖奖品：小电视行李包' })).toBeVisible();
+    expect(screen.getByRole('img', { name: '二等奖奖品：2233毛绒毯' })).toBeVisible();
+    expect(screen.getByRole('img', { name: '三等奖奖品：小电视钥匙包款式一' })).toBeVisible();
+    expect(screen.getByRole('img', { name: '三等奖奖品：小电视钥匙包款式二' })).toBeVisible();
+  });
+
   test('reveals public sections immediately when scroll observation is unavailable', async () => {
     render(<App api={createApi()} />);
 
@@ -95,8 +121,10 @@ describe('public activity experience', () => {
 
     await user.click(screen.getByRole('link', { name: '活动规则' }));
 
-    await waitFor(() => expect(screen.getByRole('dialog', { name: '活动完整规则' })).toBeVisible());
+    const rulesDialog = screen.getByRole('dialog', { name: '活动完整规则' });
+    await waitFor(() => expect(rulesDialog).toBeVisible());
     expect(screen.getByText('禁止刷票与破坏服务')).toBeVisible();
+    expect(within(rulesDialog).getByText(/禁止出现丑化、拉踩角色等不当行为/)).toBeVisible();
     expect(screen.getByText('责任与处理说明')).toBeVisible();
   });
 
@@ -104,6 +132,7 @@ describe('public activity experience', () => {
     const user = userEvent.setup();
     render(<App api={createApi({ phase: 'submission' })} />);
 
+    expect(screen.getByText('二创作品中，禁止出现丑化、拉踩角色等不当行为')).toBeVisible();
     await user.click(await screen.findByRole('link', { name: '我要投稿' }));
     await user.click(screen.getByRole('radio', { name: '鸣潮·衣锦还裳｜最佳服装设计奖' }));
     await user.upload(screen.getByLabelText('添加作品文件'), new File(['image'], 'look.png', { type: 'image/png' }));
@@ -116,12 +145,15 @@ describe('public activity experience', () => {
     const user = userEvent.setup();
     render(<App api={createApi({ phase: 'submission' })} />);
 
+    await waitFor(() => expect(screen.queryAllByText(/共鸣小剧场/)).toHaveLength(0));
     await user.click(await screen.findByRole('link', { name: '我要投稿' }));
-    const fileInput = screen.getByLabelText('添加作品文件');
+    let fileInput = screen.getByLabelText('添加作品文件');
     await user.upload(fileInput, [
       new File(['one'], 'work-1.png', { type: 'image/png' }),
       new File(['two'], 'work-2.png', { type: 'image/png' })
     ]);
+    await waitFor(() => expect(screen.getByText(/已选择 2 个文件/)).toBeVisible());
+    fileInput = screen.getByLabelText('添加作品文件');
     await user.upload(fileInput, [
       new File(['three'], 'work-3.png', { type: 'image/png' }),
       new File(['four'], 'work-4.png', { type: 'image/png' })
@@ -151,7 +183,8 @@ describe('public activity experience', () => {
     expect(screen.getByText('为喜欢的作品投票')).toBeVisible();
     expect(screen.getAllByText('投稿阶段').length).toBeGreaterThan(0);
     expect(screen.getAllByText('盲选阶段').length).toBeGreaterThan(0);
-    expect(screen.getAllByText('投票阶段').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('公开投票阶段').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('结果公示阶段').length).toBeGreaterThan(0);
   });
 
   test('keeps all public entry points available while activity config is pending', async () => {
@@ -200,7 +233,7 @@ describe('public activity experience', () => {
     expect(screen.getByText('Bilibili Toy 小站活动')).toBeVisible();
     expect(screen.queryByText('Bilibili Toy 小站活动 · 非鸣潮官方活动')).not.toBeInTheDocument();
     expect(screen.getByText('投稿时间')).toBeVisible();
-    expect(screen.getByText('奖励信息即将公布')).toBeVisible();
+    expect(screen.getByText('一等奖：小电视行李包 × 1')).toBeVisible();
     expect(screen.getByText('让作品公平地相遇')).toBeVisible();
     expect(screen.getByText('为喜欢的作品投票')).toBeVisible();
 
@@ -251,11 +284,10 @@ describe('public activity experience', () => {
     await user.type(screen.getByLabelText('作品标题'), '雨中相逢');
     await user.upload(screen.getByLabelText('添加作品文件'), [
       new File(['image'], 'work-1.png', { type: 'image/png' }),
-      new File(['image'], 'work-2.png', { type: 'image/png' }),
-      new File(['image'], 'work-3.png', { type: 'image/png' })
+      new File(['image'], 'work-2.png', { type: 'image/png' })
     ]);
     await user.click(screen.getByRole('button', { name: '提交作品' }));
 
-    expect(await screen.findByText('本赛道需要至少 4 张图片')).toBeVisible();
+    expect(await screen.findByText('本赛道需要至少 3 张图片')).toBeVisible();
   });
 });

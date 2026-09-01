@@ -58,6 +58,8 @@ interface StoredActivitySettingsRow {
   pairingEndAt: string | null;
   finalVoteStartAt: string | null;
   finalVoteEndAt: string | null;
+  resultsStartAt: string | null;
+  resultsEndAt: string | null;
 }
 
 function mediaIdsFrom(json: string): string[] {
@@ -80,7 +82,8 @@ export class D1ContestRepository implements ContestRepository, ActivitySettingsR
       .prepare(`SELECT phase, preview_mode AS previewMode,
         submission_start_at AS submissionStartAt, submission_end_at AS submissionEndAt,
         pairing_start_at AS pairingStartAt, pairing_end_at AS pairingEndAt,
-        final_vote_start_at AS finalVoteStartAt, final_vote_end_at AS finalVoteEndAt
+        final_vote_start_at AS finalVoteStartAt, final_vote_end_at AS finalVoteEndAt,
+        results_start_at AS resultsStartAt, results_end_at AS resultsEndAt
         FROM activity_settings WHERE id = 'default'`)
       .first<StoredActivitySettingsRow>();
     if (!row) return this.defaultActivitySettings();
@@ -90,7 +93,8 @@ export class D1ContestRepository implements ContestRepository, ActivitySettingsR
       schedule: {
         submission: { label: '投稿阶段', startAt: row.submissionStartAt ?? undefined, endAt: row.submissionEndAt ?? undefined },
         pairing: { label: '盲选阶段', startAt: row.pairingStartAt ?? undefined, endAt: row.pairingEndAt ?? undefined },
-        finalVote: { label: '投票阶段', startAt: row.finalVoteStartAt ?? undefined, endAt: row.finalVoteEndAt ?? undefined }
+        finalVote: { label: '公开投票阶段', startAt: row.finalVoteStartAt ?? undefined, endAt: row.finalVoteEndAt ?? undefined },
+        results: { label: '结果公示阶段', startAt: row.resultsStartAt ?? undefined, endAt: row.resultsEndAt ?? undefined }
       }
     };
   }
@@ -102,8 +106,8 @@ export class D1ContestRepository implements ContestRepository, ActivitySettingsR
           id, phase, preview_mode,
           submission_start_at, submission_end_at,
           pairing_start_at, pairing_end_at,
-          final_vote_start_at, final_vote_end_at, updated_at
-        ) VALUES ('default', ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          final_vote_start_at, final_vote_end_at, results_start_at, results_end_at, updated_at
+        ) VALUES ('default', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT(id) DO UPDATE SET
           phase = excluded.phase,
           preview_mode = excluded.preview_mode,
@@ -113,6 +117,8 @@ export class D1ContestRepository implements ContestRepository, ActivitySettingsR
           pairing_end_at = excluded.pairing_end_at,
           final_vote_start_at = excluded.final_vote_start_at,
           final_vote_end_at = excluded.final_vote_end_at,
+          results_start_at = excluded.results_start_at,
+          results_end_at = excluded.results_end_at,
           updated_at = excluded.updated_at`
       )
       .bind(
@@ -120,6 +126,7 @@ export class D1ContestRepository implements ContestRepository, ActivitySettingsR
         settings.schedule.submission.startAt ?? null, settings.schedule.submission.endAt ?? null,
         settings.schedule.pairing.startAt ?? null, settings.schedule.pairing.endAt ?? null,
         settings.schedule.finalVote.startAt ?? null, settings.schedule.finalVote.endAt ?? null,
+        settings.schedule.results.startAt ?? null, settings.schedule.results.endAt ?? null,
         new Date().toISOString()
       )
       .run();
@@ -404,7 +411,8 @@ export class D1ContestRepository implements ContestRepository, ActivitySettingsR
       schedule: {
         submission: { ...defaultActivitySettings.schedule.submission },
         pairing: { ...defaultActivitySettings.schedule.pairing },
-        finalVote: { ...defaultActivitySettings.schedule.finalVote }
+        finalVote: { ...defaultActivitySettings.schedule.finalVote },
+        results: { ...defaultActivitySettings.schedule.results }
       }
     };
   }

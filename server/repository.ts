@@ -20,7 +20,7 @@ import type { UploadedMedia } from '../src/types/platform';
 import { withTransaction } from './db';
 
 interface MediaRow { id: string; mime_type: string; }
-interface ActivityRow { phase: ActivitySettings['phase']; preview_mode: boolean; submission_start_at: string | null; submission_end_at: string | null; pairing_start_at: string | null; pairing_end_at: string | null; final_vote_start_at: string | null; final_vote_end_at: string | null; }
+interface ActivityRow { phase: ActivitySettings['phase']; preview_mode: boolean; submission_start_at: string | null; submission_end_at: string | null; pairing_start_at: string | null; pairing_end_at: string | null; final_vote_start_at: string | null; final_vote_end_at: string | null; results_start_at: string | null; results_end_at: string | null; }
 
 function mediaIdsFrom(value: unknown): string[] {
   if (Array.isArray(value)) return value.filter((item): item is string => typeof item === 'string');
@@ -35,7 +35,8 @@ function activityFromRow(row: ActivityRow): ActivitySettings {
     schedule: {
       submission: { label: '投稿阶段', startAt: row.submission_start_at ?? undefined, endAt: row.submission_end_at ?? undefined },
       pairing: { label: '盲选阶段', startAt: row.pairing_start_at ?? undefined, endAt: row.pairing_end_at ?? undefined },
-      finalVote: { label: '投票阶段', startAt: row.final_vote_start_at ?? undefined, endAt: row.final_vote_end_at ?? undefined }
+      finalVote: { label: '公开投票阶段', startAt: row.final_vote_start_at ?? undefined, endAt: row.final_vote_end_at ?? undefined },
+      results: { label: '结果公示阶段', startAt: row.results_start_at ?? undefined, endAt: row.results_end_at ?? undefined }
     }
   };
 }
@@ -56,22 +57,24 @@ export class PostgresContestRepository implements ContestRepository, ActivitySet
 
   async getActivitySettings(): Promise<ActivitySettings> {
     const result = await this.pool.query<ActivityRow>(`SELECT phase, preview_mode, submission_start_at, submission_end_at,
-      pairing_start_at, pairing_end_at, final_vote_start_at, final_vote_end_at
+      pairing_start_at, pairing_end_at, final_vote_start_at, final_vote_end_at, results_start_at, results_end_at
       FROM activity_settings WHERE id = 'default'`);
     return result.rows[0] ? activityFromRow(result.rows[0]) : this.defaultSettings();
   }
 
   async saveActivitySettings(settings: ActivitySettings): Promise<ActivitySettings> {
     await this.pool.query(`INSERT INTO activity_settings (id, phase, preview_mode, submission_start_at, submission_end_at,
-      pairing_start_at, pairing_end_at, final_vote_start_at, final_vote_end_at, updated_at)
-      VALUES ('default', $1, $2, $3, $4, $5, $6, $7, $8, NOW())
+      pairing_start_at, pairing_end_at, final_vote_start_at, final_vote_end_at, results_start_at, results_end_at, updated_at)
+      VALUES ('default', $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW())
       ON CONFLICT (id) DO UPDATE SET phase = EXCLUDED.phase, preview_mode = EXCLUDED.preview_mode,
       submission_start_at = EXCLUDED.submission_start_at, submission_end_at = EXCLUDED.submission_end_at,
       pairing_start_at = EXCLUDED.pairing_start_at, pairing_end_at = EXCLUDED.pairing_end_at,
-      final_vote_start_at = EXCLUDED.final_vote_start_at, final_vote_end_at = EXCLUDED.final_vote_end_at, updated_at = NOW()`, [
+      final_vote_start_at = EXCLUDED.final_vote_start_at, final_vote_end_at = EXCLUDED.final_vote_end_at,
+      results_start_at = EXCLUDED.results_start_at, results_end_at = EXCLUDED.results_end_at, updated_at = NOW()`, [
       settings.phase, settings.previewMode, settings.schedule.submission.startAt ?? null, settings.schedule.submission.endAt ?? null,
       settings.schedule.pairing.startAt ?? null, settings.schedule.pairing.endAt ?? null,
-      settings.schedule.finalVote.startAt ?? null, settings.schedule.finalVote.endAt ?? null
+      settings.schedule.finalVote.startAt ?? null, settings.schedule.finalVote.endAt ?? null,
+      settings.schedule.results.startAt ?? null, settings.schedule.results.endAt ?? null
     ]);
     return settings;
   }
@@ -242,6 +245,6 @@ export class PostgresContestRepository implements ContestRepository, ActivitySet
   }
 
   private defaultSettings(): ActivitySettings {
-    return { ...defaultActivitySettings, schedule: { submission: { ...defaultActivitySettings.schedule.submission }, pairing: { ...defaultActivitySettings.schedule.pairing }, finalVote: { ...defaultActivitySettings.schedule.finalVote } } };
+    return { ...defaultActivitySettings, schedule: { submission: { ...defaultActivitySettings.schedule.submission }, pairing: { ...defaultActivitySettings.schedule.pairing }, finalVote: { ...defaultActivitySettings.schedule.finalVote }, results: { ...defaultActivitySettings.schedule.results } } };
   }
 }
