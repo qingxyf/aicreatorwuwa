@@ -54,7 +54,7 @@ describe('operations experience', () => {
     await user.type(screen.getByLabelText('运营后台密码'), 'wrong-password');
     await user.click(screen.getByRole('button', { name: '登录后台' }));
 
-    expect(await screen.findByText('operator_login_failed')).toBeVisible();
+    expect(await screen.findByText('后台密码不正确，请检查后重试。')).toBeVisible();
     expect(screen.getByLabelText('运营后台密码')).toBeVisible();
   });
 

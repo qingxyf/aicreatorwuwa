@@ -290,4 +290,24 @@ describe('public activity experience', () => {
 
     expect(await screen.findByText('本赛道需要至少 3 张图片')).toBeVisible();
   });
+
+  test('translates upload rate-limit errors into a helpful Chinese message', async () => {
+    const user = userEvent.setup();
+    const api = createApi({ phase: 'submission' });
+    api.uploadMedia = async () => { throw new Error('rate_limit_exceeded'); };
+
+    render(<App api={api} />);
+
+    await user.click(await screen.findByRole('link', { name: '我要投稿' }));
+    await user.type(screen.getByLabelText('作品标题'), '限流提示测试');
+    await user.upload(screen.getByLabelText('添加作品文件'), [
+      new File(['image'], 'work-1.png', { type: 'image/png' }),
+      new File(['image'], 'work-2.png', { type: 'image/png' }),
+      new File(['image'], 'work-3.png', { type: 'image/png' })
+    ]);
+    await user.click(screen.getByRole('button', { name: '提交作品' }));
+
+    expect(await screen.findByText('操作太频繁，请稍后再试。')).toBeVisible();
+    expect(screen.queryByText('rate_limit_exceeded')).not.toBeInTheDocument();
+  });
 });

@@ -31,6 +31,7 @@ import { isPublicPhaseVisible } from '../domain/activity-phase';
 import { isVideoDurationAllowed } from '../domain/submission-media';
 import type { ContestPhase, ContestTrackId, PublicContestConfig, PublicGalleryWork, PublicPairingWork, PublicTrack } from '../types/contest';
 import { useScrollReveal } from './use-scroll-reveal';
+import { userFacingError } from './user-facing-error';
 import './styles.css';
 
 export type PublicActivityApi = ActivityHttpClient;
@@ -411,7 +412,7 @@ export function App({ api }: AppProps) {
       setSelectedFiles([]);
       form.resetFields();
     } catch (error) {
-      setSubmissionNotice(error instanceof Error ? error.message : '投稿暂时失败，请稍后重试');
+      setSubmissionNotice(userFacingError(error, '投稿暂时失败，请稍后重试。'));
     } finally {
       setIsSubmitting(false);
     }
@@ -438,7 +439,7 @@ export function App({ api }: AppProps) {
       setPairingAssignmentId(nextPair?.assignmentId);
       if (!nextPair || nextPair.works.length < 2) setVoteNotice('本赛道暂时没有足够作品可供二选一，请稍后再来。');
     } catch (error) {
-      setVoteNotice(error instanceof Error ? error.message : '请在 B站 Toy 内登录后参与投票');
+      setVoteNotice(userFacingError(error, '请在 B站 Toy 内登录后参与投票。'));
     } finally {
       setIsPairing(false);
     }
@@ -460,7 +461,7 @@ export function App({ api }: AppProps) {
       setPairingAssignmentId(undefined);
       setVoteNotice('本次选择已记录。');
     } catch (error) {
-      setVoteNotice(error instanceof Error ? error.message : '选择未能保存，请重试');
+      setVoteNotice(userFacingError(error, '选择未能保存，请重试。'));
     }
   }
 
@@ -488,7 +489,7 @@ export function App({ api }: AppProps) {
       setFinalVotesRemaining(result.remainingAfter);
       setGallery((current) => current.map((item) => item.id === work.id ? { ...item, finalVotes: item.finalVotes + 1 } : item));
     } catch (error) {
-      setVoteNotice(error instanceof Error ? error.message : '投票未能保存，请重试');
+      setVoteNotice(userFacingError(error, '投票未能保存，请重试。'));
     } finally {
       setIsVoting(false);
     }

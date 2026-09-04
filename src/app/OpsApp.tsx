@@ -4,6 +4,7 @@ import type { ColumnsType } from 'antd/es/table';
 import { PublicActivityClient, type OperationsHttpClient } from '../adapters/http/public-activity-client';
 import { defaultActivitySettings } from '../config/activity';
 import type { ActivitySettings, ContestWorkStatus, OperatorSubmission } from '../types/contest';
+import { userFacingError } from './user-facing-error';
 import './styles.css';
 
 export type OperationsApi = OperationsHttpClient;
@@ -64,7 +65,7 @@ export function OpsApp({ api }: OpsAppProps) {
   const [error, setError] = useState('');
 
   function handleOperationError(reason: unknown) {
-    const code = reason instanceof Error ? reason.message : '运营操作失败';
+    const code = reason instanceof Error ? reason.message : '';
     if (code === 'operator_session_required') {
       client.clearOperationsSession();
       setAuthorized(false);
@@ -72,7 +73,7 @@ export function OpsApp({ api }: OpsAppProps) {
       setSettings(undefined);
       setPassword('');
     }
-    setError(code === 'operator_endpoint_unavailable' ? '运营后台接口尚未部署到服务器，请先更新 ECS 后端。' : code);
+    setError(userFacingError(reason, '运营操作失败，请稍后重试。'));
   }
 
   async function enterOperations() {
