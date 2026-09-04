@@ -1,7 +1,9 @@
 import type { RateLimitRule } from '../types/contest';
 
 export const requestRateLimits: Record<string, RateLimitRule> = {
-  'media-upload': { limit: 6, windowMs: 60_000 },
+  // An image submission uploads each selected file as a separate request. Allow
+  // four three-image attempts per minute while retaining a per-account cap.
+  'media-upload': { limit: 12, windowMs: 60_000 },
   submission: { limit: 4, windowMs: 60_000 },
   'pairing-next': { limit: 10, windowMs: 60_000 },
   'pairing-vote': { limit: 10, windowMs: 60_000 },
