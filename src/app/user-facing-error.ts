@@ -13,6 +13,7 @@ const errorMessages: Record<string, string> = {
   invalid_media_signature: '文件校验失败，请重新选择文件后再试。',
   invalid_pairing_vote: '二选一信息已失效，请重新获取作品。',
   invalid_submission: '投稿信息不完整或格式不正确，请检查后重试。',
+  invalid_submission_attempt: '本次投稿尝试已失效，请重新选择文件并提交。',
   invalid_track: '请选择有效的投稿赛道。',
   media_file_required: '请先选择要上传的图片或视频。',
   media_not_owned: '作品文件与当前账号不匹配，请重新选择并上传。',

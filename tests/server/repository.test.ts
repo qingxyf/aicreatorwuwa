@@ -60,4 +60,47 @@ describe('PostgresContestRepository query contracts', () => {
     expect(query.mock.calls[0][0]).toContain("s.status = 'approved'");
     expect(query.mock.calls[0][0]).toContain("s.status = 'finalist' AND s.is_displayed = TRUE");
   });
+
+  test('groups unreferenced media by submission attempt and historical upload window', async () => {
+    const { pool, query } = createPool([
+      { id: 'media-attempt-1', owner_id: 'owner-a', attempt_id: 'attempt-1', attempt_status: 'failed', failure_reason: 'submission_limit', track_id: 'wardrobe-design', title: '失败尝试', author_name: '投稿人 A', mime_type: 'image/png', kind: 'image', byte_size: '100', created_at: '2026-09-04T12:00:00.000Z' },
+      { id: 'media-history-1', owner_id: 'owner-b', attempt_id: null, attempt_status: null, failure_reason: null, track_id: null, title: null, author_name: null, mime_type: 'image/jpeg', kind: 'image', byte_size: '200', created_at: '2026-09-04T12:10:00.000Z' },
+      { id: 'media-history-2', owner_id: 'owner-b', attempt_id: null, attempt_status: null, failure_reason: null, track_id: null, title: null, author_name: null, mime_type: 'image/jpeg', kind: 'image', byte_size: '300', created_at: '2026-09-04T12:15:00.000Z' }
+    ]);
+    const repository = new PostgresContestRepository(pool, 'https://api.test');
+
+    await expect(repository.listOperatorOrphanMedia()).resolves.toEqual([
+      {
+        id: 'attempt-1',
+        ownerId: 'owner-a',
+        authorName: '投稿人 A',
+        attemptId: 'attempt-1',
+        trackId: 'wardrobe-design',
+        title: '失败尝试',
+        status: 'failed',
+        failureReason: 'submission_limit',
+        firstUploadedAt: '2026-09-04T12:00:00.000Z',
+        lastUploadedAt: '2026-09-04T12:00:00.000Z',
+        media: [{ id: 'media-attempt-1', url: 'https://api.test/api/v1/media/media-attempt-1', kind: 'image', mimeType: 'image/png' }]
+      },
+      {
+        id: 'historical-owner-b-2026-09-04T12:10:00.000Z',
+        ownerId: 'owner-b',
+        authorName: '',
+        attemptId: undefined,
+        trackId: undefined,
+        title: undefined,
+        status: 'historical',
+        failureReason: 'uploaded_without_submission',
+        firstUploadedAt: '2026-09-04T12:10:00.000Z',
+        lastUploadedAt: '2026-09-04T12:15:00.000Z',
+        media: [
+          { id: 'media-history-1', url: 'https://api.test/api/v1/media/media-history-1', kind: 'image', mimeType: 'image/jpeg' },
+          { id: 'media-history-2', url: 'https://api.test/api/v1/media/media-history-2', kind: 'image', mimeType: 'image/jpeg' }
+        ]
+      }
+    ]);
+    expect(query.mock.calls[0][0]).toContain('NOT EXISTS');
+    expect(query.mock.calls[0][0]).toContain('submission_attempts');
+  });
 });

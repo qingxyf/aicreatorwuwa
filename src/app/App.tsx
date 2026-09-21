@@ -29,7 +29,7 @@ import { createDemoPreviewData, demoPreviewConfig } from '../config/demo-preview
 import { canUseDemoPreview } from '../config/static-preview';
 import { isPublicPhaseVisible } from '../domain/activity-phase';
 import { isVideoDurationAllowed } from '../domain/submission-media';
-import type { ContestPhase, ContestTrackId, PublicContestConfig, PublicGalleryWork, PublicPairingWork, PublicTrack } from '../types/contest';
+import type { ContestPhase, ContestTrackId, PublicContestConfig, PublicGalleryWork, PublicPairingWork, PublicTrack, SubmissionAttemptContext } from '../types/contest';
 import { useScrollReveal } from './use-scroll-reveal';
 import { userFacingError } from './user-facing-error';
 import './styles.css';
@@ -406,8 +406,15 @@ export function App({ api }: AppProps) {
         return;
       }
       await client.currentViewer();
-      const media = await Promise.all(selectedFiles.map((file) => client.uploadMedia(file)));
-      await client.submit({ trackId: submissionTrack.id, title: values.title.trim(), characterName: values.characterName?.trim(), description: values.description?.trim(), mediaIds: media.map((item) => item.id) });
+      const attempt: SubmissionAttemptContext = {
+        id: crypto.randomUUID(),
+        trackId: submissionTrack.id,
+        title: values.title.trim(),
+        characterName: values.characterName?.trim(),
+        description: values.description?.trim()
+      };
+      const media = await Promise.all(selectedFiles.map((file) => client.uploadMedia(file, attempt)));
+      await client.submit({ ...attempt, mediaIds: media.map((item) => item.id) });
       setSubmissionNotice('投稿已提交，审核通过后才会进入盲选和展示');
       setSelectedFiles([]);
       form.resetFields();

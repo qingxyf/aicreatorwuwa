@@ -4,16 +4,18 @@ import type {
   ContestWorkStatus,
   ActivitySettings,
   OperatorSubmission,
+  OperatorOrphanMediaGroup,
   PublicContestConfig,
   PublicGalleryWork,
-  PairingOffer
+  PairingOffer,
+  SubmissionAttemptContext
 } from '../../types/contest';
 import type { UploadedMedia, Viewer } from '../../types/platform';
 
 export interface ActivityHttpClient {
   loadConfig(): Promise<PublicContestConfig>;
   currentViewer(): Promise<Viewer>;
-  uploadMedia(file: File): Promise<UploadedMedia>;
+  uploadMedia(file: File, attempt?: SubmissionAttemptContext): Promise<UploadedMedia>;
   submit(input: ClientSubmissionInput): Promise<ClientSubmissionInput & { id: string; status: ContestWorkStatus; createdAt: string }>;
   nextPair(trackId: ClientSubmissionInput['trackId']): Promise<PairingOffer | null>;
   castPairingVote(input: { trackId: ClientSubmissionInput['trackId']; assignmentId: string; preferredWorkId: string }): Promise<void>;
@@ -25,6 +27,7 @@ export interface OperationsHttpClient {
   loginOperations(password: string): Promise<{ expiresAt: string }>;
   clearOperationsSession(): void;
   listSubmissions(): Promise<OperatorSubmission[]>;
+  listOrphanMedia?(): Promise<OperatorOrphanMediaGroup[]>;
   setSubmissionStatus(id: string, status: ContestWorkStatus, isDisplayed: boolean): Promise<void>;
   getActivitySettings(): Promise<ActivitySettings>;
   saveActivitySettings(settings: ActivitySettings): Promise<ActivitySettings>;
@@ -48,9 +51,16 @@ export class PublicActivityClient implements ActivityHttpClient, OperationsHttpC
     return this.viewerPromise;
   }
 
-  async uploadMedia(file: File): Promise<UploadedMedia> {
+  async uploadMedia(file: File, attempt?: SubmissionAttemptContext): Promise<UploadedMedia> {
     const form = new FormData();
     form.append('file', file);
+    if (attempt) {
+      form.append('attemptId', attempt.id);
+      form.append('trackId', attempt.trackId);
+      form.append('title', attempt.title);
+      form.append('characterName', attempt.characterName ?? '');
+      form.append('description', attempt.description ?? '');
+    }
     return this.request<UploadedMedia>('/api/v1/media', { method: 'POST', body: form });
   }
 
@@ -89,6 +99,10 @@ export class PublicActivityClient implements ActivityHttpClient, OperationsHttpC
     return this.request('/api/v1/ops/submissions', { operations: true });
   }
 
+  listOrphanMedia(): Promise<OperatorOrphanMediaGroup[]> {
+    return this.request('/api/v1/ops/orphan-media', { operations: true });
+  }
+
   async setSubmissionStatus(id: string, status: ContestWorkStatus, isDisplayed: boolean): Promise<void> {
     await this.request(`/api/v1/ops/submissions/${id}`, { method: 'PATCH', json: { status, isDisplayed }, operations: true });
   }
@@ -116,12 +130,13 @@ export class PublicActivityClient implements ActivityHttpClient, OperationsHttpC
       body: options.json ? JSON.stringify(options.json) : options.body
     });
     if (response.status === 204) return undefined as T;
+    const isOperationsRequest = options.operations || path.startsWith('/api/v1/ops/');
+    if (!response.ok && response.status === 404 && isOperationsRequest) throw new Error('operator_endpoint_unavailable');
     const responseText = await response.text();
     let payload: unknown;
     try {
       payload = responseText ? JSON.parse(responseText) : undefined;
     } catch {
-      const isOperationsRequest = options.operations || path.startsWith('/api/v1/ops/');
       if (!response.ok && response.status === 404 && isOperationsRequest) throw new Error('operator_endpoint_unavailable');
       throw new Error(response.ok ? 'invalid_response' : 'request_failed');
     }

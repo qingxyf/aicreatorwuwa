@@ -41,7 +41,7 @@ const safeClientErrors = new Set([
   'submission_limit', 'pairing_limit', 'duplicate_work', 'daily_limit', 'media_required', 'media_not_owned', 'media_requirement_not_met',
   'pairing_assignment_invalid', 'final_vote_not_recorded', 'unsupported_media_type', 'media_too_large', 'invalid_media_signature',
   'media_file_required', 'invalid_track', 'invalid_submission', 'invalid_pairing_vote', 'invalid_final_vote', 'invalid_activity_settings',
-  'activity_phase_inactive', 'rate_limit_exceeded', 'request_too_large', 'invalid_content_length', 'invalid_media_id', 'request_failed'
+  'activity_phase_inactive', 'rate_limit_exceeded', 'request_too_large', 'invalid_content_length', 'invalid_media_id', 'request_failed', 'invalid_submission_attempt'
 ]);
 const mediaIdPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
@@ -168,8 +168,18 @@ export function createServerApp(dependencies: ServerDependencies) {
     const body = await context.req.parseBody();
     const file = body.file;
     if (!(file instanceof File)) throw new Error('media_file_required');
+    const attemptId = typeof body.attemptId === 'string' ? body.attemptId : undefined;
+    if (attemptId && !mediaIdPattern.test(attemptId)) throw new Error('invalid_submission_attempt');
+    const attemptTrackId = body.trackId;
+    const attemptTitle = normalizedText(body.title, 40);
+    const attemptCharacterName = normalizedText(body.characterName, 40);
+    const attemptDescription = normalizedText(body.description, 500);
+    if (attemptId && (!isTrackId(attemptTrackId) || !attemptTitle)) throw new Error('invalid_submission_attempt');
     const media = await dependencies.mediaStore.save(file);
-    try { await repository.recordMedia(viewer.id, media, file.size); } catch (error) { await dependencies.mediaStore.remove(media.id); throw error; }
+    try {
+      if (attemptId) await repository.ensureSubmissionAttempt(viewer.id, viewer.name, viewer.avatarUrl, { id: attemptId, trackId: attemptTrackId, title: attemptTitle, characterName: attemptCharacterName, description: attemptDescription });
+      await repository.recordMedia(viewer.id, media, file.size, attemptId);
+    } catch (error) { await dependencies.mediaStore.remove(media.id); throw error; }
     return context.json({ ...media, uploadedBy: viewer.id }, 201);
   });
   server.get('/api/v1/media/:id', async (context) => {
@@ -190,13 +200,20 @@ export function createServerApp(dependencies: ServerDependencies) {
   server.post('/api/v1/submissions', async (context) => {
     assertRequestSize(context.req.raw, 64 * 1024);
     const viewer = await rateLimitedViewer(context.req.raw, 'submission');
-    await assertActivityPhase('submission');
     const payload = await context.req.json<Partial<SubmissionInput>>();
     if (!isTrackId(payload.trackId)) throw new Error('invalid_submission');
     const title = normalizedText(payload.title, 40);
     if (!title) throw new Error('invalid_submission');
     if (payload.mediaIds && (!Array.isArray(payload.mediaIds) || payload.mediaIds.some((id) => typeof id !== 'string' || !mediaIdPattern.test(id)))) throw new Error('invalid_submission');
-    return context.json(await new ContestService(repository).createSubmission({ authorId: viewer.id, authorName: viewer.name, authorAvatar: viewer.avatarUrl, trackId: payload.trackId, title, characterName: normalizedText(payload.characterName, 40), description: normalizedText(payload.description, 500), mediaIds: payload.mediaIds ?? [] }), 201);
+    const attemptId = payload.attemptId;
+    if (attemptId !== undefined && (typeof attemptId !== 'string' || !mediaIdPattern.test(attemptId))) throw new Error('invalid_submission_attempt');
+    try {
+      await assertActivityPhase('submission');
+      return context.json(await new ContestService(repository).createSubmission({ authorId: viewer.id, authorName: viewer.name, authorAvatar: viewer.avatarUrl, trackId: payload.trackId, title, characterName: normalizedText(payload.characterName, 40), description: normalizedText(payload.description, 500), mediaIds: payload.mediaIds ?? [], attemptId }), 201);
+    } catch (error) {
+      if (attemptId) await repository.markSubmissionAttempt(viewer.id, attemptId, 'failed', error instanceof Error ? error.message : 'submission_failed');
+      throw error;
+    }
   });
   server.post('/api/v1/pairings/next', async (context) => {
     assertRequestSize(context.req.raw, 64 * 1024);
@@ -231,6 +248,22 @@ export function createServerApp(dependencies: ServerDependencies) {
     return context.json(submissions.map((submission) => ({
       ...submission,
       media: submission.media.map((media) => {
+        const grant = issueMediaAccessGrant(media.id, sessionSecret, 5 * 60);
+        const url = new URL(media.url, dependencies.mediaBaseUrl || context.req.url);
+        url.searchParams.set('expires', grant.expires);
+        url.searchParams.set('signature', grant.signature);
+        return { ...media, url: url.toString() };
+      })
+    })));
+  });
+  server.get('/api/v1/ops/orphan-media', async (context) => {
+    operatorContext(context.req.raw);
+    const sessionSecret = dependencies.opsAuth?.sessionSecret;
+    if (!sessionSecret) throw new Error('ops_auth_unconfigured');
+    const groups = await repository.listOperatorOrphanMedia();
+    return context.json(groups.map((group) => ({
+      ...group,
+      media: group.media.map((media) => {
         const grant = issueMediaAccessGrant(media.id, sessionSecret, 5 * 60);
         const url = new URL(media.url, dependencies.mediaBaseUrl || context.req.url);
         url.searchParams.set('expires', grant.expires);

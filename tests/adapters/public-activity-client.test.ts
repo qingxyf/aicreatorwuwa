@@ -30,4 +30,11 @@ describe('PublicActivityClient fetch binding', () => {
 
     await expect(client.loginOperations('test-password')).rejects.toThrow('operator_endpoint_unavailable');
   });
+
+  test('turns a JSON operations 404 into the same stable endpoint error', async () => {
+    const fetcher = vi.fn(async () => new Response(JSON.stringify({ error: 'internal_error' }), { status: 404, headers: { 'content-type': 'application/json' } }));
+    const client = new PublicActivityClient('https://api.test', fetcher);
+
+    await expect(client.loginOperations('test-password')).rejects.toThrow('operator_endpoint_unavailable');
+  });
 });

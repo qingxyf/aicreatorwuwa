@@ -75,6 +75,24 @@ describe('operations experience', () => {
     expect(await screen.findByText('运营后台接口尚未部署到服务器，请先更新 ECS 后端。')).toBeVisible();
   });
 
+  test('keeps the operations console usable when orphan media is not deployed yet', async () => {
+    const api: OperationsApi = testLogin({
+      listSubmissions: async () => [],
+      listOrphanMedia: async () => { throw new Error('operator_endpoint_unavailable'); },
+      setSubmissionStatus: async () => undefined,
+      getActivitySettings: async () => activitySettings,
+      saveActivitySettings: async () => activitySettings
+    });
+    const user = userEvent.setup();
+
+    render(<OpsApp api={api} />);
+    await user.type(screen.getByLabelText('运营后台密码'), 'test-password');
+    await user.click(screen.getByRole('button', { name: '登录后台' }));
+
+    expect(await screen.findByText('暂时没有投稿记录')).toBeVisible();
+    expect(screen.queryByText('未完成投稿 / 孤立媒体')).not.toBeInTheDocument();
+  });
+
   test('lets an operator control finalist and public-display state separately', async () => {
     const setSubmissionStatus = vi.fn(async () => undefined);
     const api: OperationsApi = testLogin({
@@ -167,6 +185,53 @@ describe('operations experience', () => {
 
     expect(await screen.findByAltText('待审作品的作品预览')).toBeVisible();
     expect(screen.getAllByText('待审核').length).toBeGreaterThan(0);
+  });
+
+  test('shows orphan uploads and opens every media item in the large viewer', async () => {
+    const api: OperationsApi = testLogin({
+      listSubmissions: async () => [{
+        id: 'work-gallery',
+        title: '待审作品',
+        authorName: '投稿者',
+        authorAvatar: '',
+        media: [
+          { id: 'media-1', url: 'https://media.test/1.png', kind: 'image', mimeType: 'image/png' },
+          { id: 'media-2', url: 'https://media.test/2.png', kind: 'image', mimeType: 'image/png' }
+        ],
+        finalVotes: 0,
+        trackId: 'wardrobe-design',
+        status: 'pending',
+        isDisplayed: false,
+        pairingWins: 0,
+        exposureCount: 0,
+        createdAt: '2026-08-20T00:00:00.000Z'
+      }],
+      listOrphanMedia: async () => [{
+        id: 'orphan-group-1',
+        ownerId: 'toid-owner-1',
+        authorName: '',
+        status: 'historical',
+        failureReason: 'uploaded_without_submission',
+        firstUploadedAt: '2026-09-04T12:00:00.000Z',
+        lastUploadedAt: '2026-09-04T12:05:00.000Z',
+        media: [{ id: 'orphan-media-1', url: 'https://media.test/orphan.png', kind: 'image', mimeType: 'image/png' }]
+      }],
+      setSubmissionStatus: async () => undefined,
+      getActivitySettings: async () => activitySettings,
+      saveActivitySettings: async () => activitySettings
+    });
+    const user = userEvent.setup();
+
+    render(<OpsApp api={api} />);
+    await user.type(screen.getByLabelText('运营后台密码'), 'test-password');
+    await user.click(screen.getByRole('button', { name: '登录后台' }));
+
+    expect(await screen.findByText('未完成投稿 / 孤立媒体')).toBeVisible();
+    expect(screen.getByText('toid-owner-1')).toBeVisible();
+    await user.click(screen.getByRole('button', { name: '待审作品的作品预览' }));
+    expect(await screen.findByAltText('待审作品的第 1 张媒体')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: '下一张媒体' }));
+    expect(screen.getByAltText('待审作品的第 2 张媒体')).toBeInTheDocument();
   });
 
   test('lets an operator save the public phase, preview mode and schedule', async () => {

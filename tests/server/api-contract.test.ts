@@ -134,4 +134,34 @@ describe('Node API contract', () => {
     expect(preview.status).toBe(200);
     expect(preview.headers.get('cache-control')).toBe('private, no-store');
   });
+
+  test('protects and signs orphan media groups for operators', async () => {
+    const orphanId = '22222222-2222-4222-8222-222222222222';
+    const pool = { query: vi.fn(async (sql: string) => {
+      if (sql.includes('NOT EXISTS') && sql.includes('submission_attempts')) return {
+        rows: [{ id: orphanId, owner_id: 'owner-1', attempt_id: null, attempt_status: null, failure_reason: null, track_id: null, title: null, author_name: null, mime_type: 'image/png', kind: 'image', byte_size: '42', created_at: '2026-09-04T12:00:00.000Z' }],
+        rowCount: 1
+      };
+      return { rows: [], rowCount: 0 };
+    }) } as never;
+    const app = createServerApp({
+      pool,
+      mediaStore: { save: vi.fn(), read: vi.fn() } as never,
+      mode: 'development',
+      identity: { mode: 'development' },
+      mediaBaseUrl: 'http://api.test',
+      opsAuth: { passwordHash: await hashOpsPassword('test-ops-password'), sessionSecret: 'test-session-secret' }
+    });
+    expect((await app.request('http://api.test/api/v1/ops/orphan-media')).status).toBe(401);
+    const login = await app.request('http://api.test/api/v1/ops/login', {
+      method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ password: 'test-ops-password' })
+    });
+    const { token } = await login.json() as { token: string };
+    const response = await app.request('http://api.test/api/v1/ops/orphan-media', { headers: { authorization: `Bearer ${token}` } });
+    const [group] = await response.json() as Array<{ ownerId: string; failureReason: string; media: Array<{ url: string }> }>;
+    expect(response.status).toBe(200);
+    expect(group.ownerId).toBe('owner-1');
+    expect(group.failureReason).toBe('uploaded_without_submission');
+    expect(group.media[0].url).toContain(`/api/v1/media/${orphanId}?`);
+  });
 });

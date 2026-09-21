@@ -26,6 +26,7 @@ export interface SubmissionInput {
   characterName?: string;
   description?: string;
   mediaIds?: string[];
+  attemptId?: string;
 }
 
 export interface SubmissionRecord extends SubmissionInput {
@@ -139,6 +140,31 @@ export interface ClientSubmissionInput {
   characterName?: string;
   description?: string;
   mediaIds: string[];
+  attemptId?: string;
+}
+
+export interface SubmissionAttemptContext {
+  id: string;
+  trackId: ContestTrackId;
+  title: string;
+  characterName?: string;
+  description?: string;
+}
+
+export type SubmissionAttemptStatus = 'uploading' | 'failed' | 'submitted';
+
+export interface OperatorOrphanMediaGroup {
+  id: string;
+  ownerId: string;
+  authorName: string;
+  attemptId?: string;
+  trackId?: ContestTrackId;
+  title?: string;
+  status: SubmissionAttemptStatus | 'historical';
+  failureReason: string;
+  firstUploadedAt: string;
+  lastUploadedAt: string;
+  media: Array<{ id: string; url: string; kind: 'image' | 'video'; mimeType: string }>;
 }
 
 export interface OperatorSubmission extends PublicGalleryWork {

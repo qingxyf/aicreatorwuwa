@@ -9,6 +9,7 @@ import type {
   ContestTrackId,
   FinalVoteInput,
   OperatorSubmission,
+  OperatorOrphanMediaGroup,
   PairingVoteInput,
   PublicGalleryWork,
   PublicPairingWork,
@@ -20,6 +21,19 @@ import type { UploadedMedia } from '../src/types/platform';
 import { withTransaction } from './db';
 
 interface MediaRow { id: string; mime_type: string; }
+interface OrphanMediaRow {
+  id: string;
+  owner_id: string;
+  attempt_id: string | null;
+  attempt_status: 'uploading' | 'failed' | 'submitted' | null;
+  failure_reason: string | null;
+  track_id: ContestTrackId | null;
+  title: string | null;
+  author_name: string | null;
+  mime_type: string;
+  kind: 'image' | 'video';
+  created_at: string;
+}
 interface ActivityRow { phase: ActivitySettings['phase']; preview_mode: boolean; submission_start_at: string | null; submission_end_at: string | null; pairing_start_at: string | null; pairing_end_at: string | null; final_vote_start_at: string | null; final_vote_end_at: string | null; results_start_at: string | null; results_end_at: string | null; }
 
 function mediaIdsFrom(value: unknown): string[] {
@@ -116,6 +130,10 @@ export class PostgresContestRepository implements ContestRepository, ActivitySet
         if (typeof error === 'object' && error !== null && 'code' in error && error.code === '23505') throw new Error('submission_limit');
         throw error;
       }
+      if (input.attemptId) {
+        await client.query(`UPDATE submission_attempts SET status = 'submitted', failure_reason = NULL, updated_at = NOW(), submitted_at = NOW()
+          WHERE id = $1 AND owner_id = $2`, [input.attemptId, input.authorId]);
+      }
       return { ...input, id, status: 'pending', createdAt };
     });
   }
@@ -185,8 +203,26 @@ export class PostgresContestRepository implements ContestRepository, ActivitySet
     });
   }
 
-  async recordMedia(ownerId: string, media: UploadedMedia, byteSize: number): Promise<void> {
-    await this.pool.query(`INSERT INTO media_objects (id, owner_id, kind, mime_type, byte_size, created_at) VALUES ($1, $2, $3, $4, $5, NOW())`, [media.id, ownerId, media.kind, media.mimeType, byteSize]);
+  async ensureSubmissionAttempt(ownerId: string, authorName: string, authorAvatar: string, input: { id: string; trackId: ContestTrackId; title: string; characterName?: string; description?: string }): Promise<void> {
+    await this.pool.query(`INSERT INTO submission_attempts (id, owner_id, author_name, author_avatar, track_id, title, character_name, description, status, updated_at)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'uploading', NOW())
+      ON CONFLICT (id) DO UPDATE SET author_name = EXCLUDED.author_name, author_avatar = EXCLUDED.author_avatar,
+        track_id = EXCLUDED.track_id, title = EXCLUDED.title, character_name = EXCLUDED.character_name,
+        description = EXCLUDED.description, updated_at = NOW()
+      WHERE submission_attempts.owner_id = EXCLUDED.owner_id`, [input.id, ownerId, authorName, authorAvatar, input.trackId, input.title, input.characterName ?? '', input.description ?? '']);
+  }
+
+  async markSubmissionAttempt(ownerId: string, attemptId: string, status: 'failed' | 'submitted', failureReason: string | null = null): Promise<void> {
+    await this.pool.query(`UPDATE submission_attempts SET status = $1, failure_reason = $2, updated_at = NOW(), submitted_at = CASE WHEN $1 = 'submitted' THEN NOW() ELSE submitted_at END
+      WHERE id = $3 AND owner_id = $4`, [status, failureReason, attemptId, ownerId]);
+  }
+
+  async recordMedia(ownerId: string, media: UploadedMedia, byteSize: number, attemptId?: string): Promise<void> {
+    if (attemptId) {
+      const attempt = await this.pool.query('SELECT 1 FROM submission_attempts WHERE id = $1 AND owner_id = $2', [attemptId, ownerId]);
+      if (attempt.rowCount !== 1) throw new Error('invalid_submission_attempt');
+    }
+    await this.pool.query(`INSERT INTO media_objects (id, owner_id, kind, mime_type, byte_size, attempt_id, created_at) VALUES ($1, $2, $3, $4, $5, $6, NOW())`, [media.id, ownerId, media.kind, media.mimeType, byteSize, attemptId ?? null]);
   }
 
   async isMediaPublic(id: string): Promise<boolean> {
@@ -227,6 +263,54 @@ export class PostgresContestRepository implements ContestRepository, ActivitySet
       FROM submissions s ORDER BY s.created_at DESC`);
     const media = await this.mediaById(result.rows.flatMap((row) => mediaIdsFrom(row.media_json)));
     return result.rows.map((row) => ({ id: row.id, title: row.title, authorName: row.author_name, authorAvatar: row.author_avatar, media: this.hydrateMedia(mediaIdsFrom(row.media_json), media), finalVotes: Number(row.final_votes), trackId: row.track_id, status: row.status, isDisplayed: row.is_displayed, pairingWins: Number(row.pairing_wins), exposureCount: Number(row.exposure_count), createdAt: row.created_at }));
+  }
+
+  async listOperatorOrphanMedia(): Promise<OperatorOrphanMediaGroup[]> {
+    const result = await this.pool.query<OrphanMediaRow>(`WITH referenced AS (
+        SELECT DISTINCT jsonb_array_elements_text(s.media_json) AS media_id
+        FROM submissions s
+      )
+      SELECT m.id, m.owner_id, m.attempt_id, a.status AS attempt_status, a.failure_reason,
+        a.track_id, a.title, COALESCE(NULLIF(a.author_name, ''), known.author_name) AS author_name,
+        m.mime_type, m.kind, m.created_at
+      FROM media_objects m
+      LEFT JOIN submission_attempts a ON a.id = m.attempt_id
+      LEFT JOIN LATERAL (
+        SELECT s.author_name
+        FROM submissions s
+        WHERE s.author_id = m.owner_id AND NULLIF(s.author_name, '') IS NOT NULL
+        ORDER BY s.created_at DESC
+        LIMIT 1
+      ) known ON TRUE
+      WHERE NOT EXISTS (SELECT 1 FROM referenced r WHERE r.media_id = m.id)
+      ORDER BY COALESCE(m.attempt_id, ''), m.owner_id, m.created_at, m.id`);
+    const groups: OperatorOrphanMediaGroup[] = [];
+    for (const row of result.rows) {
+      const media = { id: row.id, url: `${this.mediaBaseUrl.replace(/\/$/, '')}/api/v1/media/${row.id}`, kind: row.kind, mimeType: row.mime_type } as const;
+      const previous = groups[groups.length - 1];
+      const rowTime = new Date(row.created_at).getTime();
+      const sameAttempt = Boolean(row.attempt_id && previous?.attemptId === row.attempt_id);
+      const sameHistoricalWindow = !row.attempt_id && previous?.status === 'historical' && previous.ownerId === row.owner_id && rowTime - new Date(previous.lastUploadedAt).getTime() <= 10 * 60 * 1000;
+      if (sameAttempt || sameHistoricalWindow) {
+        previous.media.push(media);
+        previous.lastUploadedAt = row.created_at;
+        continue;
+      }
+      groups.push({
+        id: row.attempt_id ?? `historical-${row.owner_id}-${row.created_at}`,
+        ownerId: row.owner_id,
+        authorName: row.author_name ?? '',
+        attemptId: row.attempt_id ?? undefined,
+        trackId: row.track_id ?? undefined,
+        title: row.title || undefined,
+        status: row.attempt_id ? (row.attempt_status ?? 'uploading') : 'historical',
+        failureReason: row.failure_reason ?? 'uploaded_without_submission',
+        firstUploadedAt: row.created_at,
+        lastUploadedAt: row.created_at,
+        media: [media]
+      });
+    }
+    return groups;
   }
 
   async setSubmissionState(id: string, status: WorkStatus, isDisplayed: boolean): Promise<void> {
