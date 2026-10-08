@@ -1,0 +1,188 @@
+{
+  "schemaVersion": 1,
+  "exportedAt": "2026-10-08T06:55:55.070Z",
+  "works": [
+    {
+      "id": "cf755c91-8e1e-47b5-ae33-a834843cbdb8",
+      "title": "弥汐辞",
+      "authorName": "朴一文",
+      "trackId": "wardrobe-design",
+      "avatar": {
+        "path": "exhibition/avatar-cf755c91-8e1e-47b5-ae33-a834843cbdb8.jpg",
+        "byteSize": 128173,
+        "sha256": "ffdaa042f6f643fcea85816e5fd07fabb8420d6f38e0c2bf3a34c7877d21fc50"
+      },
+      "media": [
+        {
+          "id": "0bd02f8c-6e0d-44b9-8a2f-870f129f0e18",
+          "kind": "image",
+          "mimeType": "image/jpeg",
+          "path": "exhibition/0bd02f8c-6e0d-44b9-8a2f-870f129f0e18.jpg",
+          "byteSize": 1172569,
+          "sha256": "b2da0a98f3f09b0d4db2957c2b7433802a81d486d1c02c1348e9a849c3249e6f",
+          "preview": {
+            "path": "exhibition/preview-0bd02f8c-6e0d-44b9-8a2f-870f129f0e18.webp",
+            "byteSize": 248598,
+            "sha256": "bccd466740b3b6aa58f9720f318a05bb2b206a93f426435175a6df011af1139e"
+          }
+        },
+        {
+          "id": "ab05783f-633c-4bff-a83a-b0e2f2bc7b12",
+          "kind": "image",
+          "mimeType": "image/jpeg",
+          "path": "exhibition/ab05783f-633c-4bff-a83a-b0e2f2bc7b12.jpg",
+          "byteSize": 515807,
+          "sha256": "eee0699e3cd6d291ea134e696c746a6c75baaac6a019508a5a2000dac124cb78",
+          "preview": {
+            "path": "exhibition/preview-ab05783f-633c-4bff-a83a-b0e2f2bc7b12.webp",
+            "byteSize": 254536,
+            "sha256": "1496fe5a2a396629b228b12ca61e7d476f20847d86ca63cb8f4f786cd27e6c16"
+          }
+        },
+        {
+          "id": "afac1a93-b60c-40c5-9ac4-4381107bcc0d",
+          "kind": "image",
+          "mimeType": "image/jpeg",
+          "path": "exhibition/afac1a93-b60c-40c5-9ac4-4381107bcc0d.jpg",
+          "byteSize": 129622,
+          "sha256": "a0f2dcbc748c112e2522aa36cdf80063fa90966e8806a16ef0be24637d8fc714",
+          "preview": {
+            "path": "exhibition/preview-afac1a93-b60c-40c5-9ac4-4381107bcc0d.webp",
+            "byteSize": 65432,
+            "sha256": "d9a7a574dc014f15122d06a5a1bd0aa80eabaf128ba870c7b9010c269f7cf6cd"
+          }
+        }
+      ]
+    },
+    {
+      "id": "17d73b60-6c28-4066-bbe9-da6a473ba162",
+      "title": "拉海洛全角色国风服装",
+      "authorName": "ai凌时工作室",
+      "trackId": "wardrobe-design",
+      "avatar": {
+        "path": "exhibition/avatar-17d73b60-6c28-4066-bbe9-da6a473ba162.jpg",
+        "byteSize": 261227,
+        "sha256": "93ea982ec9dd8762fb7d86df4e31edf00fe4a0730012c4890f8ce289487e92cc"
+      },
+      "media": [
+        {
+          "id": "7e277f95-2878-4ef5-a34e-bb0687f99a70",
+          "kind": "image",
+          "mimeType": "image/png",
+          "path": "exhibition/7e277f95-2878-4ef5-a34e-bb0687f99a70.png",
+          "byteSize": 9850742,
+          "sha256": "f90cf199ba6e3fd15798cf7aa1b4e026740b1d64708b595a4eab276bdf25023c",
+          "preview": {
+            "path": "exhibition/preview-7e277f95-2878-4ef5-a34e-bb0687f99a70.webp",
+            "byteSize": 315778,
+            "sha256": "57bacd4ce3580eb088bba41aee91fa8350758857deda42ef988e5aa01edc9a6c"
+          }
+        },
+        {
+          "id": "769bbbab-efb3-41a9-a7f5-e3dec1f0b964",
+          "kind": "image",
+          "mimeType": "image/png",
+          "path": "exhibition/769bbbab-efb3-41a9-a7f5-e3dec1f0b964.png",
+          "byteSize": 11080050,
+          "sha256": "81a56eb124a74af504388249dfe07609e651c3a9c57233cffcc57ef378bf46fd",
+          "preview": {
+            "path": "exhibition/preview-769bbbab-efb3-41a9-a7f5-e3dec1f0b964.webp",
+            "byteSize": 335448,
+            "sha256": "2209b10bc707083ad04dfae5c08a329ba41554f884cf75890f4b7110a671c934"
+          }
+        },
+        {
+          "id": "5d41bdfb-0f86-4275-ab22-7a78e4dcee8d",
+          "kind": "image",
+          "mimeType": "image/png",
+          "path": "exhibition/5d41bdfb-0f86-4275-ab22-7a78e4dcee8d.png",
+          "byteSize": 11385040,
+          "sha256": "0bfef08918f3eff3ded9b290d376af0a6e5059c6f0c03649ed1c47918d1d5119",
+          "preview": {
+            "path": "exhibition/preview-5d41bdfb-0f86-4275-ab22-7a78e4dcee8d.webp",
+            "byteSize": 416356,
+            "sha256": "d80933e60b0ea36911efa7bf34f8bb645ec483f4ac9178ee423d62184c1ae2eb"
+          }
+        },
+        {
+          "id": "748b91c7-188d-4677-9701-a1944d98b02b",
+          "kind": "image",
+          "mimeType": "image/png",
+          "path": "exhibition/748b91c7-188d-4677-9701-a1944d98b02b.png",
+          "byteSize": 10145468,
+          "sha256": "b6cfca13c849a29f10ce9fa161a11a5bad78b4a70245905b5f14fe9a600ab9e2",
+          "preview": {
+            "path": "exhibition/preview-748b91c7-188d-4677-9701-a1944d98b02b.webp",
+            "byteSize": 347918,
+            "sha256": "2b3fcd2437ae031f26be1569405678a7f5245344a9e7b0898fcf375913abf8b8"
+          }
+        },
+        {
+          "id": "dffda05c-9af2-4e5c-9bb2-a7fa21c83f3f",
+          "kind": "image",
+          "mimeType": "image/png",
+          "path": "exhibition/dffda05c-9af2-4e5c-9bb2-a7fa21c83f3f.png",
+          "byteSize": 9848301,
+          "sha256": "e4706cb2b78b21fea9dec428766fe837298d2f3ab13401b2b24e6ef7e0ca14de",
+          "preview": {
+            "path": "exhibition/preview-dffda05c-9af2-4e5c-9bb2-a7fa21c83f3f.webp",
+            "byteSize": 348218,
+            "sha256": "7ffa38cd69d084413b14f2a6d0fa1b55cc6428bc9b6408018c1b6fa79b9f91ed"
+          }
+        },
+        {
+          "id": "7919bf62-bb71-4ad3-be8b-7ff09a5d9f80",
+          "kind": "image",
+          "mimeType": "image/png",
+          "path": "exhibition/7919bf62-bb71-4ad3-be8b-7ff09a5d9f80.png",
+          "byteSize": 10579722,
+          "sha256": "005bd8f0c2ab2f9937f55430cbf058bbdac04d7154067c5a2ad8f9249792cee5",
+          "preview": {
+            "path": "exhibition/preview-7919bf62-bb71-4ad3-be8b-7ff09a5d9f80.webp",
+            "byteSize": 363506,
+            "sha256": "26444542dd1f1983661d1c3e66fcc69fbb8aeebb47979475d3698ed60c81caf9"
+          }
+        },
+        {
+          "id": "2c3ecd4a-9bb0-40e7-bbde-a1b46862874e",
+          "kind": "image",
+          "mimeType": "image/png",
+          "path": "exhibition/2c3ecd4a-9bb0-40e7-bbde-a1b46862874e.png",
+          "byteSize": 10637737,
+          "sha256": "859fa11d1d750525ab7cd1f28df98bf430ec4253cee206c3032644f618c44113",
+          "preview": {
+            "path": "exhibition/preview-2c3ecd4a-9bb0-40e7-bbde-a1b46862874e.webp",
+            "byteSize": 396314,
+            "sha256": "0f3e3a80deee5a7ce971a4d650dd0f33ff8e8019ebb20afc1726531227549efd"
+          }
+        },
+        {
+          "id": "6779ef50-bd13-407f-99a4-8771cde85bd0",
+          "kind": "image",
+          "mimeType": "image/png",
+          "path": "exhibition/6779ef50-bd13-407f-99a4-8771cde85bd0.png",
+          "byteSize": 9810095,
+          "sha256": "e76709cf57dbe52f372b4c3d19d696342a6cc434ef18415725a7c0c3dd825735",
+          "preview": {
+            "path": "exhibition/preview-6779ef50-bd13-407f-99a4-8771cde85bd0.webp",
+            "byteSize": 272788,
+            "sha256": "fd1e3e76a6876dbf4760330429c54887fb1e807cd8ea1faa39b9cd9c49a3b7cb"
+          }
+        },
+        {
+          "id": "6a610a82-c5bd-44cb-90da-61b872ff501d",
+          "kind": "image",
+          "mimeType": "image/png",
+          "path": "exhibition/6a610a82-c5bd-44cb-90da-61b872ff501d.png",
+          "byteSize": 11001227,
+          "sha256": "dbcb67efab72fade68fa08dc09d0839997c6be67f9b10718f75ae80b3415c62c",
+          "preview": {
+            "path": "exhibition/preview-6a610a82-c5bd-44cb-90da-61b872ff501d.webp",
+            "byteSize": 390832,
+            "sha256": "dc46be202de34b15e58d21ef52a28de442bb16e36a610ebe8c639a8c9de502b5"
+          }
+        }
+      ]
+    }
+  ]
+}
