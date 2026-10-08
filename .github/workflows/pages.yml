@@ -35,9 +35,8 @@ jobs:
       - name: Build GitHub Pages bundle
         env:
           VITE_TOY_BASE_PATH: /aicreatorwuwa/
-          VITE_STATIC_PREVIEW: 'true'
         run: |
-          npm run build
+          npm run build:exhibition
           cp dist/index.html dist/404.html
 
       - name: Configure Pages
